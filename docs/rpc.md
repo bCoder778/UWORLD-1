@@ -43,10 +43,10 @@ gc = NewGreeterClient(conn)
 ```
 
 ### SendTransaction
-- info：发送消息
+- info：发送交易
 
 ### GetTransaction
-- info：获取消息
+- info：获取交易
 - result:
     
 ```json
@@ -206,7 +206,7 @@ gc = NewGreeterClient(conn)
 ```
 
 ### GetContract
-- info：获取contract详情
+- info：获取发币详情
 - result:
 ```json
 {

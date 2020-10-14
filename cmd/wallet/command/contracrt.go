@@ -125,7 +125,7 @@ func parseSCParams(args []string) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("\ncontract address is ", contract.String())
+	fmt.Println("\ncontract address is ", contract)
 
 	note := args[7]
 	if len(args) > 9 {
@@ -134,7 +134,7 @@ func parseSCParams(args []string) (*types.Transaction, error) {
 			return nil, errors.New("wrong nonce")
 		}
 	}
-	tx := transaction.NewContract(from.String(), to.String(), contract.String(), note, amount, nonce, name, abbr, increase, description)
+	tx := transaction.NewContract(from.String(), to.String(), contract, note, amount, nonce, name, abbr, increase, description)
 	return tx, nil
 }
 

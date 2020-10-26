@@ -19,7 +19,7 @@ var (
 	// Token name
 	Token = hasharry.StringToAddress("UWD")
 
-	FeeAddress = hasharry.StringToAddress("UWDLRfxc8nRAXs7Li6PNu7CEF6K9KkguJP5L")
+	FeeAddress = hasharry.StringToAddress("UWDNQhgkNHCLdVhCFvpo6bGXXdcKtTTfeQZE")
 )
 
 const (
@@ -89,7 +89,7 @@ type MappingInfo struct {
 
 var MappingCoin = []MappingInfo{
 	{
-		Address: "UWDaZayS2aZisR1YNscwE2P9YLQJkMb82fxd",
+		Address: "UWDM1qcsk7UUNANMPKSpALJW7AqpDCy7tdoN",
 		Note:    "",
 		Amount:  210 * 1e4 * 1e8,
 	},

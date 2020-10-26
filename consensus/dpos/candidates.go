@@ -9,47 +9,47 @@ type CandidatesInfo struct {
 // The first half is the address of the block, the second half is the id of the block node
 var initialCandidates = []CandidatesInfo{
 	{
-		Address: "UWDNoJGwz4rVACBqfYvQJZxLCSA5o8V5nekV",
-		PeerId:  "16Uiu2HAm429SEV84wiyFoCGY1NG5tJbNtqCkMcxsX7haQVhrgaJB",
+		Address: "UWDR5oWfEjnGcEnQJrknuNW3LxZeWSpZUPJ5",
+		PeerId:  "16Uiu2HAm8dGc2gAuQG9WAdPNeXRDG1GU8wQtv4f2jdGEGkrX9Ln1",
 	},
 	{
-		Address: "UWDVW6KfmUGjzPiQ36e4LFvPTSo8V2vAh5c3",
-		PeerId:  "16Uiu2HAkyd8FzxuGVa3mWiiXthKkAzp2yB6HDeSM7cv5ir8jrmXv",
+		Address: "UWDP1EbJ1mpT4sDD1p6TWhvNXBjxRiqLjW7F",
+		PeerId:  "16Uiu2HAm5gMSBTPc1PjcsJJpSNvXWmA3KaMkfLsjxs78BDA4FLDM",
 	},
 	{
-		Address: "UWDaUrRHiPKRprsD6AYNHiyiaVepZCsbLKYo",
-		PeerId:  "16Uiu2HAm58R6j3zpu1nD9rtRoZASA7NSHhybHvoncMECXBDNUA9A",
+		Address: "UWDGvCpqgfGdjTRYBV2F8WCek6oBWTLiUTQH",
+		PeerId:  "16Uiu2HAmTfA1REe8wkYGNn7NzENwfyR9wVbLFLCDe6x3J1aXhTG2",
 	},
 	{
-		Address: "UWDSKmdqJkD8RwiUq2HsiHYwjwvdeKDtTCWv",
-		PeerId:  "16Uiu2HAmQASyqisdpSt9HupzGg7JqKXYAU8vL8wfhLcbb3cxR4hs",
+		Address: "UWDcSaX5hUhutRDC4EQT65DLeRJxBJWBWppX",
+		PeerId:  "16Uiu2HAmK2PNwXpTM91ftN9ZF92CNLKf5m7XDApBaBa69cwPDpMv",
 	},
 	{
-		Address: "UWDb62iQKvD4z6QqJW4rYobvLbfmPEBskg5h",
-		PeerId:  "16Uiu2HAmGt4s4XmunZi3YwhigwfFuBCExypKjQcwefrJAJrTfPDZ",
+		Address: "UWDHR3U2FQDNYdQpgUrHw3LkrMiC23wetsb6",
+		PeerId:  "16Uiu2HAmKCs2So8WRqZj5aWQKHAMj6DhLd1eQQBvF8MdjgbajUHL",
 	},
 	{
-		Address: "UWDSyL6uAZvwqhYdxx9kHh4if3w3QbT6f38B",
-		PeerId:  "16Uiu2HAm1X2MjfVdj8zq5mXvEyCJ37FkMNFsx6rsWzeWmC8tJjmv",
+		Address: "UWDamE7HaJNvRrRDx3Rnmj9WKqHnDMFzQ6P3",
+		PeerId:  "16Uiu2HAkvRSRt5VEeN8vXKg1sxDSeXwJfQzPqYPPneoaTNwYxQuM",
 	},
 	{
-		Address: "UWDWkzHfwcydwFJEubVpT4XzYHXJoXERuCsZ",
-		PeerId:  "16Uiu2HAmVATgQKgF1gb4UdTuABM8i5896fvsCKQzYrqmuR4q7sBg",
+		Address: "UWDRKs3eg7deVcRo5pJVCsRAVQ1umXNM1DiD",
+		PeerId:  "16Uiu2HAmABaSg6ZmBpKXoSCV5V89fNS4N3s91wRAbneq7DJPN81y",
 	},
 	{
-		Address: "UWDXiZVnKFknPYwQvsj8Ph7eUXeACnu9ZXPF",
-		PeerId:  "16Uiu2HAm8ve2K63xkL3QXixYt7K6BasHFxpvUMeACnGYsXKZ6L9t",
+		Address: "UWDZqKCCQLV2yTZ7crW6kZn7UFLPCpHtFdGi",
+		PeerId:  "16Uiu2HAm9w9gZsnS7ZKGqdLfNgXuyMrfhBgSKHWePVfhHGVzDDxH",
 	},
 	{
-		Address: "UWDYL4adyJmYWryM3r7QPuHduo5q3Tcm31b3",
-		PeerId:  "16Uiu2HAmNd8LBBd4tDN6CC9tfXjcMBSDV7cFQgsAadq9ML6fxAam",
+		Address: "UWDKvSoMxcD7MbT1KZ3kX5xjnL4tWK7XXGCd",
+		PeerId:  "16Uiu2HAmULDuqSBP9mueYjHCknUuex3yGVQM4QXgBNTHf8qiNFD6",
 	},
 	{
-		Address: "UWDKoLj4mRTKr4SjyyFG4LY3ExZVSZT9dNZv",
-		PeerId:  "16Uiu2HAkziHs8kdy71ASWGqJCa9wfEZ6c4KS5mJk4GVboYeVQA6R",
+		Address: "UWDN2rVzEgJRVGyZFUQstL2y2JpSkGVz1kbY",
+		PeerId:  "16Uiu2HAkxKA74FNnwY5hAJGW64GyDgfWFeCtkkuFJwXbSLeVKK1t",
 	},
 	{
-		Address: "UWDFYhVvEaGW23N57W23iaCbLxcD933jpwsQ",
-		PeerId:  "16Uiu2HAkvKciDaQb26ST7VUgVEsEuc2phE7Hff2J49an8t5ZXwPC",
+		Address: "UWDToaCgPNCZ168ZnvUg38bRMm5U7DjwRVuA",
+		PeerId:  "16Uiu2HAmRsZi1iWAx1efSv7o5dvzeYoRXhQusNtjzbhmmuqUo99q",
 	},
 }

@@ -22,7 +22,7 @@ func init() {
 		//"/ip4/47.57.100.253/tcp/2211/ipfs/16Uiu2HAkwQ1tmB5WrVgT83nD5KYZKanugXNVDM51vaTJw8TtxLa6",
 		//"/ip4/8.210.1.245/tcp/2211/ipfs/16Uiu2HAm51UkR3V2V2zJt6GHnLjyjze7UxHYfGBDKZwKCCHdJ7c4",
 		// UWDZPxLoUPGyYy3Y1Boeyyvk4LKy6n1NDT2n
-		"/ip4/8.210.23.69/tcp/2211/ipfs/16Uiu2HAmSyvYS7YiANCzL2MkV3UEemABFqN6XNhH4k14ecSVkWmE",
+		"/ip4/8.210.23.69/tcp/2211/ipfs/16Uiu2HAky7wHeSacNDy9sooSktQ2hjSULJEfqzrU47k8nnr1JR5v",
 		//"/ip4/127.0.0.1/tcp/2211/ipfs/16Uiu2HAmSyvYS7YiANCzL2MkV3UEemABFqN6XNhH4k14ecSVkWmE",
 	} {
 		ma, err := multiaddr.NewMultiaddr(s)

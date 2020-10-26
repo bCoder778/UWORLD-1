@@ -61,7 +61,24 @@ func GetAccount(cmd *cobra.Command, args []string) {
 		outputRespError(cmd.Use, resp)
 	}
 }
+func GetAccountRpc(addr string) (string, error) {
+	resp, err := GetAccountByRpc(addr)
+	if err != nil {
+		return "", err
+	}
+	if resp.Code == 0 {
+		account := &rpctypes.Account{}
+		json.Unmarshal(resp.Result, account)
+		if account.Address != addr {
+			account.Address = addr
+		}
+		bytes, _ := json.Marshal(account)
 
+		return string(bytes), nil
+	} else {
+		return resp.Err, nil
+	}
+}
 func GetAccountByRpc(addr string) (*rpc.Response, error) {
 	client, err := NewRpcClient()
 	if err != nil {
@@ -307,7 +324,28 @@ func EcToAccount(cmd *cobra.Command, args []string) {
 		output(string(bytes))
 	}
 }
+func EcToAccountRpc(passWd []byte, private string) (*keystore.Json, error) {
 
+	var err error
+	priv, err := secp256k1.ParseStringToPrivate(private)
+	if err != nil {
+		return nil, errors.New("[priavte] wrong")
+	}
+	if len(passWd) > 32 {
+		return nil, fmt.Errorf("password too long! ")
+	}
+	p2pId, err := p2p.GenerateP2pId(priv)
+	if err != nil {
+		return nil, fmt.Errorf("generate p2p id failed! %s", err.Error())
+	}
+	if j, err := keystore.GenerateKeyJson(Net, Cfg.KeyStoreDir, priv, "", passWd); err != nil {
+		return nil, fmt.Errorf("generate key failed! %s", err.Error())
+	} else {
+		j.P2pId = p2pId.String()
+
+		return j, nil
+	}
+}
 func getAddJsonPath(addr string) string {
 	return Cfg.KeyStoreDir + "/" + addr + ".json"
 }

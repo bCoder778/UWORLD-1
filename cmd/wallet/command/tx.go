@@ -199,7 +199,26 @@ func GetTransactionRpc(hashStr string) (*rpc.Response, error) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*20)
 	defer cancel()
-
-	resp, err := client.Gc.GetTransaction(ctx, &rpc.Hash{Hash: hashStr})
+	h := &rpc.Hash{Hash: hashStr}
+	resp, err := client.Gc.GetTransaction(ctx, h)
 	return resp, err
+}
+
+func SendTransactionRpc(tx string) (*rpc.Response, error) {
+
+	rpcClient, err := NewRpcClient()
+	if err != nil {
+		return nil, err
+	}
+	defer rpcClient.Close()
+
+	re := &rpc.Bytes{Bytes: []byte(tx)}
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*20)
+	defer cancel()
+
+	resp, err := rpcClient.Gc.SendTransaction(ctx, re)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

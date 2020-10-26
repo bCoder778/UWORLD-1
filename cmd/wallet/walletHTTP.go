@@ -1,0 +1,181 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/BurntSushi/toml"
+	"github.com/jhdriver/UWORLD/cmd/wallet/command"
+	"github.com/jhdriver/UWORLD/cmd/wallet/config"
+	config2 "github.com/jhdriver/UWORLD/config"
+	"github.com/jhdriver/UWORLD/core/types"
+	"github.com/jhdriver/UWORLD/crypto/mnemonic"
+	"github.com/jhdriver/UWORLD/param"
+	"github.com/jhdriver/UWORLD/rpc/rpctypes"
+	"net/http"
+)
+
+var preConfig *config.Config
+var (
+	defaultFormat      = true
+	defaultTestNet     = false
+	defaultKeyStoreDir = "keystore"
+	defaultRpcCer      = "server.pem"
+	defaultRpcIp       = "47.242.6.199"
+)
+
+type ResResponse struct {
+	Code   int32       `protobuf:"varint,1,opt,name=code,proto3" json:"code"`
+	Result interface{} `protobuf:"bytes,2,opt,name=result,proto3" json:"result"`
+	Err    string      `protobuf:"bytes,3,opt,name=err,proto3" json:"err,omitempty"`
+}
+
+func main() {
+	//command.RootCmd.PersistentPreRunE = LoadConfig
+	//if err := command.RootCmd.Execute(); err != nil {
+	//	os.Exit(1)
+	//}
+
+	LoadConfig()
+	http.HandleFunc("/SendTransaction", SendTransactionRpc)
+	http.HandleFunc("/GetAccount", GetAccountRpc)
+	http.HandleFunc("/MnemonicToEc", MnemonicToEc)
+	http.HandleFunc("/EcToAccount", EcToAccountRpc)
+	http.HandleFunc("/GetTransaction", GetTransactionRpc)
+
+	http.ListenAndServe("0.0.0.0:8000", nil)
+
+}
+func GetAccountRpc(w http.ResponseWriter, r *http.Request) {
+
+	addr := r.PostFormValue("addr")
+
+	response := ResResponse{Code: 1,
+		Result: nil,
+		Err:    ""}
+	resp, err := command.GetAccountRpc(addr)
+	if err != nil {
+		response.Err = err.Error()
+	} else {
+		response.Code = 0
+		account := &rpctypes.Account{}
+		json.Unmarshal([]byte(resp), account)
+		if account.Address != addr {
+			account.Address = addr
+		}
+		response.Result = account
+	}
+	bytes, _ := json.Marshal(response)
+	fmt.Fprintln(w, string(bytes))
+}
+func SendTransactionRpc(w http.ResponseWriter, r *http.Request) {
+	response := ResResponse{Code: 1,
+		Result: nil,
+		Err:    ""}
+	tx := r.PostFormValue("tx")
+	resp, err := command.SendTransactionRpc(tx)
+
+	if err != nil {
+		response.Err = err.Error()
+	} else {
+		if resp.Code == 0 {
+			response.Result = string(resp.Result)
+			response.Code = 0
+		} else {
+			response.Err = resp.Err
+		}
+	}
+
+	bytes, _ := json.Marshal(response)
+	fmt.Fprintln(w, string(bytes))
+}
+func GetTransactionRpc(w http.ResponseWriter, r *http.Request) {
+	response := ResResponse{Code: 1,
+		Result: nil,
+		Err:    ""}
+	hashStr := r.PostFormValue("hashStr")
+	resp, err := command.GetTransactionRpc(hashStr)
+
+	if err != nil {
+		response.Err = err.Error()
+	} else {
+		if resp.Code == 0 {
+			if err != nil {
+				response.Err = err.Error()
+			} else {
+				response.Code = 0
+				transaction := &types.RpcTransactionConfirmed{}
+				json.Unmarshal([]byte(resp.Result), transaction)
+
+				response.Result = transaction
+			}
+
+		} else {
+			response.Err = resp.Err
+		}
+	}
+
+	bytes, _ := json.Marshal(response)
+	fmt.Fprintln(w, string(bytes))
+}
+
+func MnemonicToEc(w http.ResponseWriter, r *http.Request) {
+	response := ResResponse{Code: 1,
+		Result: nil,
+		Err:    ""}
+	s := r.PostFormValue("mnemonic")
+	if ec, err := mnemonic.MnemonicToEc(s); err != nil {
+		response.Err = err.Error()
+
+	} else {
+		response.Result = ec.String()
+		response.Code = 0
+	}
+
+	bytes, _ := json.Marshal(response)
+	fmt.Fprintln(w, string(bytes))
+}
+func EcToAccountRpc(w http.ResponseWriter, r *http.Request) {
+	response := ResResponse{Code: 1,
+		Result: nil,
+		Err:    ""}
+	private := r.PostFormValue("private")
+	passWd := r.PostFormValue("passWd")
+	resp, err := command.EcToAccountRpc([]byte(passWd), private)
+
+	if err != nil {
+		response.Err = err.Error()
+	} else {
+		response.Result = resp
+		response.Code = 0
+	}
+	bytes, _ := json.Marshal(response)
+	fmt.Fprintln(w, string(bytes))
+}
+
+// LoadConfig config file and flags
+func LoadConfig() (err error) {
+
+	fileCfg := &config.Config{}
+	_, err = toml.DecodeFile("wallet.toml", fileCfg)
+	if err != nil {
+
+	}
+	if fileCfg.KeyStoreDir == "" {
+		fileCfg.KeyStoreDir = defaultKeyStoreDir
+	}
+
+	if fileCfg.RpcPort == "" {
+		fileCfg.RpcPort = config2.DefaultRpcPort
+	}
+
+	if fileCfg.RpcIp == "" {
+		fileCfg.RpcIp = defaultRpcIp
+		fileCfg.RpcPass = "A1234567890"
+	}
+
+	command.Cfg = fileCfg
+	if command.Cfg.TestNet {
+		command.Net = param.TestNet
+	}
+	return nil
+}

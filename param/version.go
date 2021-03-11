@@ -1,3 +1,3 @@
 package param
 
-const Version string = "v0.3.2"
+const Version string = "v0.3.3"

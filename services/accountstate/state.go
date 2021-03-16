@@ -123,6 +123,10 @@ func (cs *AccountState) UpdateFees(fees, blockHeight uint64) error {
 }
 
 func (cs *AccountState) UpdateConsumption(fees, blockHeight uint64) error {
+	if fees == 0 {
+		return nil
+	}
+
 	cs.accountMutex.Lock()
 	defer cs.accountMutex.Unlock()
 

@@ -10,7 +10,7 @@ import (
 func NewTransaction(from, to, token string, note string, amount, nonce uint64) *types.Transaction {
 	tx := &types.Transaction{
 		TxHead: &types.TransactionHead{
-			TxType:     types.NormalTransaction,
+			TxType:     types.Transfer,
 			TxHash:     hasharry.Hash{},
 			From:       hasharry.StringToAddress(from),
 			Nonce:      nonce,
@@ -19,12 +19,39 @@ func NewTransaction(from, to, token string, note string, amount, nonce uint64) *
 			SignScript: &types.SignScript{},
 			Fees:       param.Fees,
 		},
-		TxBody: &types.NormalTransactionBody{
+		TxBody: &types.TransferBody{
 			Contract: hasharry.StringToAddress(token),
 			To:       hasharry.StringToAddress(to),
 			Amount:   amount,
 		},
 	}
+	tx.SetHash()
+	return tx
+}
+
+func NewTransactionV2(from string, toMap []map[string]uint64, token string, note string, nonce uint64) *types.Transaction {
+	tx := &types.Transaction{
+		TxHead: &types.TransactionHead{
+			TxType:     types.Transfer,
+			TxHash:     hasharry.Hash{},
+			From:       hasharry.StringToAddress(from),
+			Nonce:      nonce,
+			Time:       uint64(time.Now().Unix()),
+			Note:       note,
+			SignScript: &types.SignScript{},
+		},
+	}
+	txBody := &types.TransferV2Body{
+		Contract:  hasharry.StringToAddress(token),
+		Receivers: types.NewReceivers(),
+	}
+	for _, to := range toMap {
+		for address, amount := range to {
+			txBody.Receivers.Add(hasharry.StringToAddress(address), amount)
+		}
+	}
+	tx.TxBody = txBody
+	tx.TxHead.Fees = param.Fees * uint64(len(txBody.Receivers.ReceiverList()))
 	tx.SetHash()
 	return tx
 }

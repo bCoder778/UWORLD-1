@@ -6,17 +6,22 @@ import (
 
 // Account Status
 type IAccount interface {
-	GetBalance(contract string) uint64
+	GetBalance(string) uint64
 	GetNonce() uint64
-	Update(confirmedHeight uint64) error
+	Update(uint64) error
 	StateKey() hasharry.Address
 	IsExist() bool
 	IsNeedUpdate() bool
-	FromChange(tx ITransaction, blockHeight uint64) error
-	ToChange(tx ITransaction, blockHeight uint64) error
-	FeesChange(fees, blockHeight uint64)
-	ConsumptionChange(fees, blockHeight uint64)
-	VerifyTxState(tx ITransaction) error
-	VerifyNonce(nonce uint64) error
+	FromChange(ITransaction, uint64) error
+	TransferChangeTo(*Receiver, uint64, hasharry.Address, uint64) error
+	TransferV2ChangeTo(re *Receiver, contract hasharry.Address, blockHeight uint64) error
+	FeesChange(uint64, uint64)
+	ConsumptionChange(uint64, uint64)
+	VerifyTxState(ITransaction) error
+	VerifyNonce(uint64) error
 	IsEmpty() bool
+}
+
+type IChainAddress interface {
+	AddressList() []string
 }

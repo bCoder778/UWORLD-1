@@ -80,7 +80,7 @@ func (c *ContractState) UpdateContract(tx types.ITransaction, blockHeight uint64
 		TxHash:   tx.Hash(),
 		Time:     tx.GetTime(),
 		Amount:   txBody.GetAmount(),
-		Receiver: txBody.ToAddress().String(),
+		Receiver: txBody.ToAddress().ReceiverList()[0].Address.String(),
 	}
 	contractAddr := txBody.GetContract()
 	contract := c.contractDb.GetContractState(contractAddr.String())

@@ -1,6 +1,9 @@
 package rpctypes
 
-import "github.com/uworldao/UWORLD/core/types"
+import (
+	"github.com/uworldao/UWORLD/common/hasharry"
+	"github.com/uworldao/UWORLD/core/types"
+)
 
 type Account struct {
 	Address         string         `json:"address"`
@@ -39,4 +42,12 @@ func TranslateAccountToRpcAccount(account *types.Account) *Account {
 		ConfirmedTime:   account.ConfirmedTime,
 	}
 	return rpcAccount
+}
+
+func TranslateAddressListToRpcAddressList(list []hasharry.Address) []string {
+	address := []string{}
+	for _, ls := range list {
+		address = append(address, ls.String())
+	}
+	return address
 }

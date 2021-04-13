@@ -151,12 +151,19 @@ func (tp *TxPool) AddTransaction(tx types.ITransaction, isPeer bool) error {
 }
 
 // Get transactions from the transaction pool
-func (tp *TxPool) Gets(count int) types.Transactions {
+func (tp *TxPool) Gets(count int, maxSize uint64) types.Transactions {
 	txs := tp.txs.Gets(count)
 	failed := types.Transactions{}
+	var txBytes uint64
 	for i, tx := range txs {
 		if err := tp.verifyTx(tx); err != nil {
 			failed = append(failed, tx)
+			bytes, _ := tx.EncodeToBytes()
+			txLength := uint64(len(bytes))
+			if txBytes+txLength > maxSize {
+				return txs
+			}
+			txBytes += uint64(len(bytes))
 			txs = append(txs[0:i], txs[i+1:txs.Len()]...)
 		}
 	}

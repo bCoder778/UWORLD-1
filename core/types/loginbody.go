@@ -43,8 +43,8 @@ func (lit *LoginTransactionBody) GetDescription() string {
 	return ""
 }
 
-func (lit *LoginTransactionBody) ToAddress() hasharry.Address {
-	return hasharry.Address{}
+func (lit *LoginTransactionBody) ToAddress() *Receivers {
+	return NewReceivers()
 }
 
 func (lit *LoginTransactionBody) VerifyBody(from hasharry.Address) error {

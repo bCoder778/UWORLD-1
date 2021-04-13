@@ -293,33 +293,60 @@ func (a *Account) toContractChange(tx ITransaction, blockHeight uint64) error {
 }
 
 // Change the status of the recipient of the transaction
-func (a *Account) ToChange(tx ITransaction, blockHeight uint64) error {
-	txBody := tx.GetTxBody()
+func (a *Account) TransferChangeTo(re *Receiver, fees uint64, contract hasharry.Address, blockHeight uint64) error {
 	if !a.IsExist() {
-		a.Address = txBody.ToAddress()
+		a.Address = re.Address
 	}
-	if tx.GetTxType() == ContractTransaction {
+	/*	if tx.GetTxType() == ContractTransaction {
 		return a.toContractChange(tx, blockHeight)
+	}*/
+
+	if contract.IsEqual(param.Token) {
+		re.Amount = re.Amount - fees
 	}
 
-	amount := txBody.GetAmount()
-	if txBody.GetContract().IsEqual(param.Token) {
-		amount = amount - tx.GetFees()
-	}
-
-	coinAccount, ok := a.Coins.Get(txBody.GetContract().String())
+	coinAccount, ok := a.Coins.Get(contract.String())
 	if ok {
-		coinAccount.LockedOut += amount
+		coinAccount.LockedOut += re.Amount
 	} else {
 		coinAccount = &CoinAccount{
-			Contract:  txBody.GetContract().String(),
+			Contract:  contract.String(),
 			Balance:   0,
 			LockedIn:  0,
-			LockedOut: amount,
+			LockedOut: re.Amount,
 		}
 	}
 	a.Coins.Set(coinAccount)
-	a.JournalOut.Add(txBody.GetContract(), amount, blockHeight)
+	a.JournalOut.Add(contract, re.Amount, blockHeight)
+	return nil
+}
+
+// Change the status of the recipient of the transaction
+func (a *Account) TransferV2ChangeTo(re *Receiver, contract hasharry.Address, blockHeight uint64) error {
+	if !a.IsExist() {
+		a.Address = re.Address
+	}
+	/*	if tx.GetTxType() == ContractTransaction {
+		return a.toContractChange(tx, blockHeight)
+	}*/
+
+	/*	if contract.IsEqual(param.Token) {
+		re.Amount = re.Amount - fees
+	}*/
+
+	coinAccount, ok := a.Coins.Get(contract.String())
+	if ok {
+		coinAccount.LockedOut += re.Amount
+	} else {
+		coinAccount = &CoinAccount{
+			Contract:  contract.String(),
+			Balance:   0,
+			LockedIn:  0,
+			LockedOut: re.Amount,
+		}
+	}
+	a.Coins.Set(coinAccount)
+	a.JournalOut.Add(contract, re.Amount, blockHeight)
 	return nil
 }
 
@@ -366,7 +393,7 @@ func (a *Account) ConsumptionChange(consumption, blockHeight uint64) {
 // party.
 func (a *Account) VerifyTxState(tx ITransaction) error {
 	if !a.IsExist() {
-		a.Address = tx.GetTxBody().ToAddress()
+		a.Address = tx.GetTxHead().From
 	}
 
 	/*	if tx.GetTime() <= a.Time {
@@ -385,9 +412,15 @@ func (a *Account) VerifyTxState(tx ITransaction) error {
 
 	// Verify the balance of the token
 	switch tx.GetTxType() {
-	case NormalTransaction:
+	case Transfer:
 		if tx.GetTxBody().GetContract() == param.Token {
 			return a.verifyTokenTxBalance(tx)
+		} else {
+			return a.verifyCoinTxBalance(tx)
+		}
+	case TransferV2:
+		if tx.GetTxBody().GetContract() == param.Token {
+			return a.verifyTransferV2TokenBalance(tx)
 		} else {
 			return a.verifyCoinTxBalance(tx)
 		}
@@ -409,7 +442,17 @@ func (a *Account) verifyTokenTxBalance(tx ITransaction) error {
 	tokenAccount, ok := a.Coins.Get(param.Token.String())
 	if !ok {
 		return ErrNotEnoughBalance
-	} else if tokenAccount.Balance < tx.GetTxBody().GetAmount() {
+	} else if tokenAccount.Balance < (tx.GetTxBody().GetAmount()) {
+		return ErrNotEnoughBalance
+	}
+	return nil
+}
+
+func (a *Account) verifyTransferV2TokenBalance(tx ITransaction) error {
+	tokenAccount, ok := a.Coins.Get(param.Token.String())
+	if !ok {
+		return ErrNotEnoughBalance
+	} else if tokenAccount.Balance < (tx.GetTxBody().GetAmount() + tx.GetFees()) {
 		return ErrNotEnoughBalance
 	}
 	return nil

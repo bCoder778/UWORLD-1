@@ -32,7 +32,6 @@ var GetTxPoolTxs = &cobra.Command{
 }
 
 func GetTxPool(cmd *cobra.Command, args []string) {
-
 	client, err := NewRpcClient()
 	if err != nil {
 		log.Error(cmd.Use+" err: ", err)

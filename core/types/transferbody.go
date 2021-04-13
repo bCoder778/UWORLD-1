@@ -9,45 +9,47 @@ import (
 const maxContractLength = 50
 
 // Ordinary transfer transaction body
-type NormalTransactionBody struct {
+type TransferBody struct {
 	Contract hasharry.Address
 	To       hasharry.Address
 	Amount   uint64
 }
 
-func (nt *NormalTransactionBody) ToAddress() hasharry.Address {
-	return nt.To
+func (nt *TransferBody) ToAddress() *Receivers {
+	recis := NewReceivers()
+	recis.Add(nt.To, nt.Amount)
+	return recis
 }
 
-func (nt *NormalTransactionBody) GetAmount() uint64 {
+func (nt *TransferBody) GetAmount() uint64 {
 	return nt.Amount
 }
 
-func (nt *NormalTransactionBody) GetContract() hasharry.Address {
+func (nt *TransferBody) GetContract() hasharry.Address {
 	return nt.Contract
 }
 
-func (nt *NormalTransactionBody) GetName() string {
+func (nt *TransferBody) GetName() string {
 	return ""
 }
 
-func (nt *NormalTransactionBody) GetAbbr() string {
+func (nt *TransferBody) GetAbbr() string {
 	return ""
 }
 
-func (nt *NormalTransactionBody) GetIncreaseSwitch() bool {
+func (nt *TransferBody) GetIncreaseSwitch() bool {
 	return false
 }
 
-func (nt *NormalTransactionBody) GetDescription() string {
+func (nt *TransferBody) GetDescription() string {
 	return ""
 }
 
-func (nt *NormalTransactionBody) GetPeerId() []byte {
+func (nt *TransferBody) GetPeerId() []byte {
 	return nil
 }
 
-func (nt *NormalTransactionBody) VerifyBody(from hasharry.Address) error {
+func (nt *TransferBody) VerifyBody(from hasharry.Address) error {
 	if err := nt.verifyContract(); err != nil {
 		return err
 	}
@@ -57,14 +59,14 @@ func (nt *NormalTransactionBody) VerifyBody(from hasharry.Address) error {
 	return nil
 }
 
-func (nt *NormalTransactionBody) verifyTo() error {
+func (nt *TransferBody) verifyTo() error {
 	if !ut.CheckUWDAddress(param.Net, nt.To.String()) {
 		return ErrAddress
 	}
 	return nil
 }
 
-func (nt *NormalTransactionBody) verifyContract() error {
+func (nt *TransferBody) verifyContract() error {
 	if !ut.IsValidContractAddress(param.Net, nt.Contract.String()) {
 		return ErrContractAddr
 	}

@@ -73,6 +73,8 @@ const (
 	TokenConsumption uint64 = 10.24 * AtomsPerCoin
 
 	CoinHeight = 1
+
+	MaximumReceiver = 10000
 )
 
 var (

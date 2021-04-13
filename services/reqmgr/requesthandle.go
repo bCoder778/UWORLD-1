@@ -13,7 +13,8 @@ import (
 var ErrorBlockNotFound = errors.New("block not exist")
 var ErrorPeerClose = errors.New("peer is close")
 
-const maxGetBlockCount = 30
+const maxGetBlockCount = 50
+const maxGetBlockSize = 1024 * 1024 * 1024 * 2
 
 type RWRequest struct {
 	request *Request
@@ -79,6 +80,7 @@ func (rm *RequestManager) getBlocksByHeight(request *RWRequest) (*Response, erro
 		code = DecodeError
 		message = err.Error()
 	} else if rm.blockChain.GetLastHeight() >= height {
+		var blockSize int
 		for rm.blockChain.GetLastHeight() >= height && count < maxGetBlockCount {
 			block, err := rm.blockChain.GetRlpBlockByHeight(height)
 			if err != nil {
@@ -87,6 +89,11 @@ func (rm *RequestManager) getBlocksByHeight(request *RWRequest) (*Response, erro
 				response := NewResponse(code, message, body)
 				return response, nil
 			} else {
+				blockBytes, _ := rlp.EncodeToBytes(block)
+				if len(blockBytes)+blockSize > maxGetBlockSize {
+					break
+				}
+				blockSize += len(blockBytes)
 				blocks = append(blocks, block)
 				height++
 				count++

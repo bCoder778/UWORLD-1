@@ -23,8 +23,10 @@ type ContractBody struct {
 	IncreaseSwitch bool
 }
 
-func (c *ContractBody) ToAddress() hasharry.Address {
-	return c.To
+func (c *ContractBody) ToAddress() *Receivers {
+	recis := NewReceivers()
+	recis.Add(c.To, 0)
+	return recis
 }
 
 func (c *ContractBody) GetAmount() uint64 {

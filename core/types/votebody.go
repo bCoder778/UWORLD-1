@@ -11,8 +11,10 @@ type VoteTransactionBody struct {
 	To hasharry.Address
 }
 
-func (vt *VoteTransactionBody) ToAddress() hasharry.Address {
-	return vt.To
+func (vt *VoteTransactionBody) ToAddress() *Receivers {
+	recis := NewReceivers()
+	recis.Add(vt.To, 0)
+	return recis
 }
 
 func (vt *VoteTransactionBody) GetAmount() uint64 {

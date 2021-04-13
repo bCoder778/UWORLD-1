@@ -11,8 +11,8 @@ type LogoutTransactionBody struct {
 	Placeholder bool
 }
 
-func (lt *LogoutTransactionBody) ToAddress() hasharry.Address {
-	return hasharry.Address{}
+func (lt *LogoutTransactionBody) ToAddress() *Receivers {
+	return NewReceivers()
 }
 
 func (lt *LogoutTransactionBody) GetAmount() uint64 {

@@ -91,18 +91,24 @@ func (cs *AccountState) UpdateTo(tx types.ITransaction, blockHeight uint64) erro
 
 	var toAccount types.IAccount
 
-	toAccount = cs.stateDb.GetAccountState(tx.GetTxBody().ToAddress())
-	err := toAccount.Update(cs.confirmedHeight)
-	if err != nil {
-		return err
-	}
-	err = toAccount.ToChange(tx, blockHeight)
-	if err != nil {
-		return err
-	}
+	receivers := tx.GetTxBody().ToAddress().ReceiverList()
+	for _, re := range receivers {
+		toAccount = cs.stateDb.GetAccountState(re.Address)
+		err := toAccount.Update(cs.confirmedHeight)
+		if err != nil {
+			return err
+		}
+		if tx.GetTxType() == types.TransferV2 {
+			err = toAccount.TransferV2ChangeTo(re, tx.GetTxBody().GetContract(), blockHeight)
+		} else {
+			err = toAccount.TransferChangeTo(re, tx.GetFees(), tx.GetTxBody().GetContract(), blockHeight)
+		}
+		if err != nil {
+			return err
+		}
 
-	cs.setAccountState(toAccount)
-
+		cs.setAccountState(toAccount)
+	}
 	return nil
 }
 

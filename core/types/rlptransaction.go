@@ -9,8 +9,15 @@ type RlpTransaction struct {
 
 func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
 	switch rt.TxHead.TxType {
-	case NormalTransaction:
-		var nt *NormalTransactionBody
+	case Transfer:
+		var nt *TransferBody
+		rlp.DecodeBytes(rt.TxBody, &nt)
+		return &Transaction{
+			TxHead: rt.TxHead,
+			TxBody: nt,
+		}
+	case TransferV2:
+		var nt *TransferV2Body
 		rlp.DecodeBytes(rt.TxBody, &nt)
 		return &Transaction{
 			TxHead: rt.TxHead,

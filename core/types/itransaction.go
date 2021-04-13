@@ -34,7 +34,7 @@ type ITransactionBody interface {
 	GetAbbr() string
 	GetDescription() string
 	GetIncreaseSwitch() bool
-	ToAddress() hasharry.Address
+	ToAddress() *Receivers
 	GetPeerId() []byte
 	VerifyBody(from hasharry.Address) error
 }

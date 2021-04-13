@@ -7,7 +7,7 @@ type ITxPool interface {
 	Start() error
 	Stop() error
 	Add(tx types.ITransaction, isPeer bool) error
-	Gets(count int) types.Transactions
+	Gets(count int, maxBytes uint64) types.Transactions
 	GetAll() (types.Transactions, types.Transactions)
 	Get() types.ITransaction
 	Remove(txs types.Transactions)

@@ -12,7 +12,8 @@ import (
 )
 
 const resultChanSize = 10
-const maxBlockTransactions = 999
+const maxBlockTransactions = 9999
+const maxTransactionsSize uint64 = 1024 * 1024 * 2024
 
 // Generate block miner
 type Miner struct {
@@ -143,7 +144,7 @@ func (miner *Miner) generateBlock(header *types.Header) (*types.Block, error) {
 
 // Get transactions from the transaction pool and generate coinbase transactions
 func (miner *Miner) getTransactions(height uint64) types.Transactions {
-	txs := miner.txPool.Gets(maxBlockTransactions)
+	txs := miner.txPool.Gets(maxBlockTransactions, maxTransactionsSize)
 	coinBase := miner.getCoinBase(txs, height)
 	coinBaseTx := miner.generateCoinBaseTx(coinBase)
 	coinBaseTx.SetHash()
@@ -160,7 +161,7 @@ func (miner *Miner) generateCoinBaseTx(coinBase uint64) types.ITransaction {
 	return &types.Transaction{
 		TxHead: &types.TransactionHead{
 			TxHash:     hasharry.Hash{},
-			TxType:     types.NormalTransaction,
+			TxType:     types.Transfer,
 			From:       hasharry.StringToAddress(types.CoinBase),
 			Nonce:      0,
 			Fees:       0,
@@ -168,7 +169,7 @@ func (miner *Miner) generateCoinBaseTx(coinBase uint64) types.ITransaction {
 			Note:       "",
 			SignScript: &types.SignScript{},
 		},
-		TxBody: &types.NormalTransactionBody{
+		TxBody: &types.TransferBody{
 			Contract: param.Token,
 			To:       miner.signer,
 			Amount:   coinBase,

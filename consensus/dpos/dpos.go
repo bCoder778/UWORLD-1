@@ -103,7 +103,7 @@ func (dpos *DPos) GetGenesisBlock() *types.Block {
 		tx := &types.Transaction{
 			TxHead: &types.TransactionHead{
 				TxHash:     hasharry.Hash{},
-				TxType:     types.NormalTransaction,
+				TxType:     types.Transfer,
 				From:       hasharry.StringToAddress(info.Address),
 				Nonce:      0,
 				Fees:       0,
@@ -111,7 +111,7 @@ func (dpos *DPos) GetGenesisBlock() *types.Block {
 				Note:       info.Note,
 				SignScript: &types.SignScript{},
 			},
-			TxBody: &types.NormalTransactionBody{
+			TxBody: &types.TransferBody{
 				Contract: param.Token,
 				To:       hasharry.StringToAddress(info.Address),
 				Amount:   info.Amount,

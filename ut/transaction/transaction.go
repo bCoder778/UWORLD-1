@@ -32,7 +32,7 @@ func NewTransaction(from, to, token string, note string, amount, nonce uint64) *
 func NewTransactionV2(from string, toMap []map[string]uint64, token string, note string, nonce uint64) *types.Transaction {
 	tx := &types.Transaction{
 		TxHead: &types.TransactionHead{
-			TxType:     types.Transfer,
+			TxType:     types.TransferV2,
 			TxHash:     hasharry.Hash{},
 			From:       hasharry.StringToAddress(from),
 			Nonce:      nonce,
@@ -51,7 +51,7 @@ func NewTransactionV2(from string, toMap []map[string]uint64, token string, note
 		}
 	}
 	tx.TxBody = txBody
-	tx.TxHead.Fees = param.Fees * uint64(len(txBody.Receivers.ReceiverList()))
+	tx.TxHead.Fees = types.TransferFees(len(txBody.Receivers.ReceiverList()))
 	tx.SetHash()
 	return tx
 }

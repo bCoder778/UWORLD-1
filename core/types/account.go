@@ -38,7 +38,7 @@ func AccountStateKeyString(address []byte, others ...[]byte) string {
 	return hash.String()
 }
 
-func NewAccount() *Account {
+func NewAccount(key hasharry.Address) *Account {
 	coin := &CoinAccount{
 		Contract:  param.Token.String(),
 		Balance:   0,
@@ -46,7 +46,7 @@ func NewAccount() *Account {
 		LockedOut: 0,
 	}
 	return &Account{
-		Address:         hasharry.Address{},
+		Address:         key,
 		Nonce:           0,
 		Time:            0,
 		ConfirmedHeight: 0,
@@ -173,52 +173,109 @@ func (a *Account) IsNeedUpdate() bool {
 }
 
 // Change the account status of the party that transferred the transaction
-func (a *Account) FromChange(tx ITransaction, blockHeight uint64) error {
-	if tx.GetTxType() == ContractTransaction {
-		return a.fromContractChange(tx, blockHeight)
-	}
+func (a *Account) TransferChangeFrom(tx ITransaction, blockHeight uint64) error {
 	if a.Nonce+1 != tx.GetNonce() {
 		return ErrNonce
 	}
 	contract := tx.GetTxBody().GetContract()
 	if contract == param.Token {
-		return a.fromTokenChange(tx, blockHeight)
+		return a.changeUWDTransferFrom(tx, blockHeight)
 	} else {
-		return a.fromCoinChange(tx, blockHeight)
+		return a.changeCoinTransferFrom(tx, blockHeight)
 	}
 }
 
+func (a *Account) TransferV2ChangeFrom(tx ITransaction, blockHeight uint64) error {
+	if a.Nonce+1 != tx.GetNonce() {
+		return ErrNonce
+	}
+	contract := tx.GetTxBody().GetContract()
+	if contract == param.Token {
+		return a.changeUWDTransferV2From(tx, blockHeight)
+	} else {
+		return a.changeCoinTransferFrom(tx, blockHeight)
+	}
+}
+
+func (a *Account) ContractChangeFrom(tx ITransaction, blockHeight uint64) error {
+	if a.Nonce+1 != tx.GetNonce() {
+		return ErrNonce
+	}
+	fees := tx.GetFees()
+	uwd, ok := a.Coins.Get(param.Token.String())
+	if !ok {
+		return errors.New("account is not exist")
+	}
+	if uwd.Balance < fees {
+		return ErrNotEnoughFees
+	}
+	uwd.Balance -= fees
+	uwd.LockedIn += fees
+	a.Coins.Set(uwd)
+	a.Nonce = tx.GetNonce()
+	a.Time = tx.GetTime()
+	a.JournalIn.Add(tx, blockHeight, param.Token, 0, fees)
+	return nil
+}
+
 // Change the primary account status of one party to the transaction transfer
-func (a *Account) fromTokenChange(tx ITransaction, blockHeight uint64) error {
+func (a *Account) changeUWDTransferFrom(tx ITransaction, blockHeight uint64) error {
 	amount := tx.GetTxBody().GetAmount()
 	fees := tx.GetFees()
 	if !a.IsExist() {
 		a.Address = tx.From()
 	}
-	coinAccount, ok := a.Coins.Get(param.Token.String())
+	uwd, ok := a.Coins.Get(param.Token.String())
 	if !ok {
 		return errors.New("account is not exist")
 	}
-	if coinAccount.Balance < amount {
+	if uwd.Balance < amount {
 		return ErrNotEnoughBalance
 	}
 	if a.Nonce+1 != tx.GetNonce() {
 		return ErrNonce
 	}
 
-	coinAccount.Balance -= amount
-	coinAccount.LockedIn += amount
-	a.Coins.Set(coinAccount)
+	uwd.Balance -= amount
+	uwd.LockedIn += amount
+	a.Coins.Set(uwd)
 	a.Nonce = tx.GetNonce()
 	a.Time = tx.GetTime()
 	a.JournalIn.Add(tx, blockHeight, param.Token, amount-fees, fees)
 	return nil
 }
 
+// Change the primary account status of one party to the transaction transfer
+func (a *Account) changeUWDTransferV2From(tx ITransaction, blockHeight uint64) error {
+	amount := tx.GetTxBody().GetAmount()
+	fees := tx.GetFees()
+	if !a.IsExist() {
+		a.Address = tx.From()
+	}
+	uwd, ok := a.Coins.Get(param.Token.String())
+	if !ok {
+		return errors.New("account is not exist")
+	}
+	if uwd.Balance < amount+fees {
+		return ErrNotEnoughBalance
+	}
+	if a.Nonce+1 != tx.GetNonce() {
+		return ErrNonce
+	}
+
+	uwd.Balance -= amount + fees
+	uwd.LockedIn += amount + fees
+	a.Coins.Set(uwd)
+	a.Nonce = tx.GetNonce()
+	a.Time = tx.GetTime()
+	a.JournalIn.Add(tx, blockHeight, param.Token, amount, fees)
+	return nil
+}
+
 // Change the status of the secondary account of the transaction transfer party.
 // The transaction of the secondary account needs to consume the fee of the
 // primary account.
-func (a *Account) fromCoinChange(tx ITransaction, blockHeight uint64) error {
+func (a *Account) changeCoinTransferFrom(tx ITransaction, blockHeight uint64) error {
 	fees := tx.GetFees()
 	txBody := tx.GetTxBody()
 	amount := txBody.GetAmount()
@@ -252,29 +309,12 @@ func (a *Account) fromCoinChange(tx ITransaction, blockHeight uint64) error {
 }
 
 // Change of contract information
-func (a *Account) fromContractChange(tx ITransaction, blockHeight uint64) error {
-	fees := tx.GetFees()
-	tokenAccount, ok := a.Coins.Get(param.Token.String())
-	if !ok {
-		return errors.New("account is not exist")
+func (a *Account) ContractChangeTo(re *Receiver, contract hasharry.Address, blockHeight uint64) error {
+	if !a.IsExist() {
+		a.Address = re.Address
 	}
-	if tokenAccount.Balance < fees {
-		return ErrNotEnoughFees
-	}
-	tokenAccount.Balance -= fees
-	tokenAccount.LockedIn += fees
-	a.Coins.Set(tokenAccount)
-	a.Nonce = tx.GetNonce()
-	a.Time = tx.GetTime()
-	a.JournalIn.Add(tx, blockHeight, param.Token, 0, fees)
-	return nil
-}
 
-// Change of contract information
-func (a *Account) toContractChange(tx ITransaction, blockHeight uint64) error {
-	txBody := tx.GetTxBody()
-	amount := txBody.GetAmount()
-	contract := txBody.GetContract()
+	amount := re.Amount
 	coinAccount, ok := a.Coins.Get(contract.String())
 	if ok {
 		coinAccount.LockedOut += amount
@@ -286,9 +326,8 @@ func (a *Account) toContractChange(tx ITransaction, blockHeight uint64) error {
 			LockedIn:  0,
 		}
 	}
-
 	a.Coins.Set(coinAccount)
-	a.JournalOut.Add(txBody.GetContract(), txBody.GetAmount(), blockHeight)
+	a.JournalOut.Add(contract, re.Amount, blockHeight)
 	return nil
 }
 

@@ -125,7 +125,7 @@ func (t *Transaction) verifyTxFees() error {
 	case Transfer:
 		fees = param.Fees
 	case TransferV2:
-		fees = param.Fees * uint64(len(t.TxBody.ToAddress().ReceiverList()))
+		fees = TransferFees(len(t.TxBody.ToAddress().ReceiverList()))
 	case ContractTransaction:
 		fees = param.TokenConsumption
 	}
@@ -351,4 +351,12 @@ func CalCoinBase(height, startHeight uint64) uint64 {
 	}
 	count, _ := NewAmount(coins)
 	return count
+}
+
+func TransferFees(receiverCount int) uint64 {
+	if receiverCount < 10 {
+		return param.Fees
+	} else {
+		return param.Fees * uint64(receiverCount) / 10
+	}
 }

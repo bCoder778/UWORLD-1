@@ -25,7 +25,7 @@ type ContractBody struct {
 
 func (c *ContractBody) ToAddress() *Receivers {
 	recis := NewReceivers()
-	recis.Add(c.To, 0)
+	recis.Add(c.To, c.Amount)
 	return recis
 }
 

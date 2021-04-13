@@ -14,6 +14,7 @@ import (
 	"github.com/uworldao/UWORLD/rpc/rpctypes"
 	"github.com/uworldao/UWORLD/ut/transaction"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,6 +22,7 @@ func init() {
 	txCmds := []*cobra.Command{
 		GetTransactionCmd,
 		SendTransactionCmd,
+		SendTransactionV2Cmd,
 	}
 	RootCmd.AddCommand(txCmds...)
 	RootSubCmdGroups["transaction"] = txCmds
@@ -173,6 +175,121 @@ func parseParams(args []string) (*types.Transaction, error) {
 		}
 	}
 	return transaction.NewTransaction(from.String(), to.String(), contract.String(), note, amount, nonce), nil
+}
+
+var SendTransactionV2Cmd = &cobra.Command{
+	Use:     "SendTransactionV2 {from} {to:amount|to:amount} {contract} {note} {password} {nonce}; Send a transaction v2;",
+	Aliases: []string{"SendTransactionV2", "st2", "ST2"},
+	Short:   "SendTransactionV2 {from} {to:amount|to:amount} {contract} {note} {password} {nonce}; Send a transaction v2;",
+	Example: `
+	SendTransactionV2 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ "3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ:10|3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndD:10" UWD  "transaction note"
+		OR
+	SendTransactionV2 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ "3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ:10|3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndD:10" UWD  "transaction note" 123456
+		OR
+	SendTransactionV2 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ "3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ:10|3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndD:10" UWD  "transaction note" 123456 1
+	`,
+	Args: cobra.MinimumNArgs(4),
+	Run:  SendTransactionV2,
+}
+
+func SendTransactionV2(cmd *cobra.Command, args []string) {
+	var passwd []byte
+	var err error
+	if len(args) > 4 {
+		passwd = []byte(args[4])
+	} else {
+		fmt.Println("please input password：")
+		passwd, err = readPassWd()
+		if err != nil {
+			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			return
+		}
+	}
+	privKey, err := ReadAddrPrivate(getAddJsonPath(args[0]), passwd)
+	if err != nil {
+		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		return
+	}
+
+	tx, err := parseV2Params(args)
+	if err != nil {
+		log.Error(cmd.Use+" err: ", err)
+		return
+	}
+	resp, err := GetAccountByRpc(tx.From().String())
+	if err != nil {
+		log.Error(cmd.Use+" err: ", err)
+		return
+	}
+	if resp.Code != 0 {
+		log.Errorf(cmd.Use+" err: code %d, message: %s", resp.Code, resp.Err)
+		return
+	}
+	var account *rpctypes.Account
+	if err := json.Unmarshal(resp.Result, &account); err != nil {
+		log.Error(cmd.Use+" err: ", err)
+		return
+	}
+	if tx.TxHead.Nonce == 0 {
+		tx.TxHead.Nonce = account.Nonce + 1
+	}
+	if !signTx(cmd, tx, privKey.Private) {
+		log.Error(cmd.Use+" err: ", errors.New("signature failure"))
+		return
+	}
+
+	rs, err := sendTx(cmd, tx)
+	if err != nil {
+		log.Error(cmd.Use+" err: ", err)
+	} else if rs.Code != 0 {
+		log.Errorf(cmd.Use+" err: code %d, message: %s", rs.Code, rs.Err)
+	} else {
+		fmt.Println()
+		fmt.Println(string(rs.Result))
+	}
+}
+
+func parseV2Params(args []string) (*types.Transaction, error) {
+	var err error
+	var nonce uint64
+	from := hasharry.StringToAddress(args[0])
+	to, err := parseReceiver(args[1])
+	if err != nil {
+		return nil, err
+	}
+	contract := hasharry.StringToAddress(args[2])
+	note := args[3]
+	if len(args) > 5 {
+		nonce, err = strconv.ParseUint(args[5], 10, 64)
+		if err != nil {
+			return nil, errors.New("wrong nonce")
+		}
+	}
+	return transaction.NewTransactionV2(from.String(), to, contract.String(), note, nonce), nil
+}
+
+func parseReceiver(toStr string) ([]map[string]uint64, error) {
+	toList := []map[string]uint64{}
+	receivers := strings.Split(toStr, "|")
+	if len(receivers) == 0 {
+		return nil, fmt.Errorf("no receiver")
+	}
+	for _, receiver := range receivers {
+		strs := strings.Split(receiver, ":")
+		if len(strs) != 2 {
+			return nil, fmt.Errorf("wrong receiver %s", receiver)
+		}
+		fAmt, err := strconv.ParseFloat(strs[1], 64)
+		if err != nil {
+			return nil, fmt.Errorf("wrong receiver %s", receiver)
+		}
+		if amt, err := types.NewAmount(fAmt); err != nil {
+			return nil, fmt.Errorf("wrong receiver %s", receiver)
+		} else {
+			toList = append(toList, map[string]uint64{strs[0]: amt})
+		}
+	}
+	return toList, nil
 }
 
 func signTx(cmd *cobra.Command, tx *types.Transaction, key string) bool {

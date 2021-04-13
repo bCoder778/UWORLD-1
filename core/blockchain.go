@@ -277,24 +277,24 @@ func (blc *BlockChain) updateState(block *types.Block) error {
 	for _, tx := range block.Body.Transactions {
 		switch tx.GetTxType() {
 		case types.Transfer:
-			if err := blc.accountState.UpdateFrom(tx, block.Height); err != nil {
+			if err := blc.accountState.UpdateTransferFrom(tx, block.Height); err != nil {
 				return err
 			}
-			if err := blc.accountState.UpdateTo(tx, block.Height); err != nil {
+			if err := blc.accountState.UpdateTransferTo(tx, block.Height); err != nil {
 				return err
 			}
 		case types.TransferV2:
-			if err := blc.accountState.UpdateFrom(tx, block.Height); err != nil {
+			if err := blc.accountState.UpdateTransferV2From(tx, block.Height); err != nil {
 				return err
 			}
-			if err := blc.accountState.UpdateTo(tx, block.Height); err != nil {
+			if err := blc.accountState.UpdateTransferV2To(tx, block.Height); err != nil {
 				return err
 			}
 		case types.ContractTransaction:
-			if err := blc.accountState.UpdateFrom(tx, block.Height); err != nil {
+			if err := blc.accountState.UpdateContractFrom(tx, block.Height); err != nil {
 				return err
 			}
-			if err := blc.accountState.UpdateTo(tx, block.Height); err != nil {
+			if err := blc.accountState.UpdateContractTo(tx, block.Height); err != nil {
 				return err
 			}
 			blc.contractState.UpdateContract(tx, block.Height)
@@ -319,11 +319,11 @@ func (blc *BlockChain) updateGenesisState(block *types.Block) error {
 	for _, tx := range block.Body.Transactions {
 		switch tx.GetTxType() {
 		case types.Transfer:
-			if err := blc.accountState.UpdateTo(tx, block.Height); err != nil {
+			if err := blc.accountState.UpdateTransferTo(tx, block.Height); err != nil {
 				return err
 			}
 		case types.TransferV2:
-			if err := blc.accountState.UpdateTo(tx, block.Height); err != nil {
+			if err := blc.accountState.UpdateTransferV2To(tx, block.Height); err != nil {
 				return err
 			}
 		}

@@ -12,9 +12,12 @@ type IAccount interface {
 	StateKey() hasharry.Address
 	IsExist() bool
 	IsNeedUpdate() bool
-	FromChange(ITransaction, uint64) error
+	TransferChangeFrom(ITransaction, uint64) error
+	TransferV2ChangeFrom(ITransaction, uint64) error
+	ContractChangeFrom(ITransaction, uint64) error
 	TransferChangeTo(*Receiver, uint64, hasharry.Address, uint64) error
-	TransferV2ChangeTo(re *Receiver, contract hasharry.Address, blockHeight uint64) error
+	TransferV2ChangeTo(*Receiver, hasharry.Address, uint64) error
+	ContractChangeTo(*Receiver, hasharry.Address, uint64) error
 	FeesChange(uint64, uint64)
 	ConsumptionChange(uint64, uint64)
 	VerifyTxState(ITransaction) error

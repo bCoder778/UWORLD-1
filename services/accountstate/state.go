@@ -61,7 +61,7 @@ func (cs *AccountState) setAccountState(account types.IAccount) {
 }
 
 // Update sender account status based on transaction information
-func (cs *AccountState) UpdateFrom(tx types.ITransaction, blockHeight uint64) error {
+func (cs *AccountState) UpdateContractFrom(tx types.ITransaction, blockHeight uint64) error {
 	if tx.IsCoinBase() {
 		return nil
 	}
@@ -75,7 +75,54 @@ func (cs *AccountState) UpdateFrom(tx types.ITransaction, blockHeight uint64) er
 		return err
 	}
 
-	err = fromAccount.FromChange(tx, blockHeight)
+	err = fromAccount.ContractChangeFrom(tx, blockHeight)
+	if err != nil {
+		return err
+	}
+
+	cs.setAccountState(fromAccount)
+	return nil
+}
+
+// Update sender account status based on transaction information
+func (cs *AccountState) UpdateTransferFrom(tx types.ITransaction, blockHeight uint64) error {
+	if tx.IsCoinBase() {
+		return nil
+	}
+
+	cs.accountMutex.Lock()
+	defer cs.accountMutex.Unlock()
+
+	fromAccount := cs.stateDb.GetAccountState(tx.From())
+	err := fromAccount.Update(cs.confirmedHeight)
+	if err != nil {
+		return err
+	}
+
+	err = fromAccount.TransferChangeFrom(tx, blockHeight)
+	if err != nil {
+		return err
+	}
+
+	cs.setAccountState(fromAccount)
+	return nil
+}
+
+func (cs *AccountState) UpdateTransferV2From(tx types.ITransaction, blockHeight uint64) error {
+	if tx.IsCoinBase() {
+		return nil
+	}
+
+	cs.accountMutex.Lock()
+	defer cs.accountMutex.Unlock()
+
+	fromAccount := cs.stateDb.GetAccountState(tx.From())
+	err := fromAccount.Update(cs.confirmedHeight)
+	if err != nil {
+		return err
+	}
+
+	err = fromAccount.TransferV2ChangeFrom(tx, blockHeight)
 	if err != nil {
 		return err
 	}
@@ -85,7 +132,7 @@ func (cs *AccountState) UpdateFrom(tx types.ITransaction, blockHeight uint64) er
 }
 
 // Update the receiver's account status based on transaction information
-func (cs *AccountState) UpdateTo(tx types.ITransaction, blockHeight uint64) error {
+func (cs *AccountState) UpdateTransferV2To(tx types.ITransaction, blockHeight uint64) error {
 	cs.accountMutex.Lock()
 	defer cs.accountMutex.Unlock()
 
@@ -98,17 +145,58 @@ func (cs *AccountState) UpdateTo(tx types.ITransaction, blockHeight uint64) erro
 		if err != nil {
 			return err
 		}
-		if tx.GetTxType() == types.TransferV2 {
-			err = toAccount.TransferV2ChangeTo(re, tx.GetTxBody().GetContract(), blockHeight)
-		} else {
-			err = toAccount.TransferChangeTo(re, tx.GetFees(), tx.GetTxBody().GetContract(), blockHeight)
-		}
+		err = toAccount.TransferV2ChangeTo(re, tx.GetTxBody().GetContract(), blockHeight)
 		if err != nil {
 			return err
 		}
-
 		cs.setAccountState(toAccount)
 	}
+	return nil
+}
+
+func (cs *AccountState) UpdateTransferTo(tx types.ITransaction, blockHeight uint64) error {
+	cs.accountMutex.Lock()
+	defer cs.accountMutex.Unlock()
+
+	var toAccount types.IAccount
+
+	receivers := tx.GetTxBody().ToAddress().ReceiverList()
+	re := receivers[0]
+	toAccount = cs.stateDb.GetAccountState(re.Address)
+	err := toAccount.Update(cs.confirmedHeight)
+	if err != nil {
+		return err
+	}
+
+	err = toAccount.TransferChangeTo(re, tx.GetFees(), tx.GetTxBody().GetContract(), blockHeight)
+	if err != nil {
+		return err
+	}
+
+	cs.setAccountState(toAccount)
+	return nil
+}
+
+func (cs *AccountState) UpdateContractTo(tx types.ITransaction, blockHeight uint64) error {
+	cs.accountMutex.Lock()
+	defer cs.accountMutex.Unlock()
+
+	var toAccount types.IAccount
+
+	receivers := tx.GetTxBody().ToAddress().ReceiverList()
+	re := receivers[0]
+	toAccount = cs.stateDb.GetAccountState(re.Address)
+	err := toAccount.Update(cs.confirmedHeight)
+	if err != nil {
+		return err
+	}
+
+	err = toAccount.ContractChangeTo(re, tx.GetTxBody().GetContract(), blockHeight)
+	if err != nil {
+		return err
+	}
+
+	cs.setAccountState(toAccount)
 	return nil
 }
 

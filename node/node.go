@@ -21,6 +21,8 @@ import (
 	"github.com/uworldao/UWORLD/services/peermgr"
 	"github.com/uworldao/UWORLD/services/reqmgr"
 	"github.com/uworldao/UWORLD/services/txmgr"
+	"sync"
+	"time"
 )
 
 type Node struct {
@@ -37,11 +39,13 @@ type Node struct {
 	// Node private key information
 	private   *config.NodePrivate
 	rpcServer *rpc.Server
+	peerInfo  []*types.NodeInfo
+	mutex     sync.RWMutex
 }
 
 func NewNode(cfg *config.Config) (*Node, error) {
 	var err error
-	node := &Node{}
+	node := &Node{peerInfo: make([]*types.NodeInfo, 0)}
 	revBlkCh := make(chan *types.Block, 100)
 	genBlkCh := make(chan *types.Block, 20)
 	revTxCh := make(chan types.ITransaction, 50)
@@ -124,6 +128,8 @@ func (n *Node) Start() error {
 
 	go n.peerManager.Check()
 
+	go n.updatePeers()
+
 	return nil
 }
 
@@ -164,15 +170,44 @@ func (n *Node) NodeInfo() *types.NodeInfo {
 }
 
 func (n *Node) PeersInfo() []*types.NodeInfo {
-	peerNodeInfos := make([]*types.NodeInfo, 0)
-	peers := n.peerManager.Peers()
-	for _, peer := range peers {
-		streamCreator := p2p.StreamCreator{PeerId: peer.PeerId, NewStreamFunc: peer.NewStreamFunc}
-		if nodeInfo, err := n.network.GetNodeInfo(&streamCreator); err != nil {
-			continue
-		} else {
-			peerNodeInfos = append(peerNodeInfos, nodeInfo)
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	return n.peerInfo
+}
+
+func (n *Node) updatePeers() {
+	t := time.NewTimer(time.Second * 60 * 1)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-t.C:
+			n.clearPeerInfo()
+			peers := n.peerManager.Peers()
+			for _, peer := range peers {
+				streamCreator := p2p.StreamCreator{PeerId: peer.PeerId, NewStreamFunc: peer.NewStreamFunc}
+				if nodeInfo, err := n.network.GetNodeInfo(&streamCreator); err != nil {
+					continue
+				} else {
+					n.insertPeerInfo(nodeInfo)
+				}
+			}
 		}
 	}
-	return peerNodeInfos
+
+}
+
+func (n *Node) insertPeerInfo(info *types.NodeInfo) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	n.peerInfo = append(n.peerInfo, info)
+}
+
+func (n *Node) clearPeerInfo() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	n.peerInfo = make([]*types.NodeInfo, 0)
 }

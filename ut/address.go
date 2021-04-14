@@ -3,7 +3,6 @@ package ut
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/crypto/base58"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
@@ -114,7 +113,6 @@ func GenerateContractAddress(net string, address string, abbr string) (string, e
 	}
 	addrBytes := base58.Decode(address)
 	buffBytes := append(addrBytes, []byte(abbr)...)
-	fmt.Println(buffBytes)
 	hashed := hash.Hash(buffBytes)
 	hash160, err := hash.Hash160(hashed.Bytes())
 	if err != nil {

@@ -22,7 +22,7 @@ func NewTxSortedMap() *TxSortedMap {
 
 func (t *TxSortedMap) Put(tx types.ITransaction) {
 	t.txs[tx.From().String()] = tx
-	t.cache[tx.From().String()] = tx
+	t.cache[tx.GetTxHead().TxHash.String()] = tx
 	heap.Push(t.index, &txInfo{
 		address: tx.From().String(),
 		txHash:  tx.Hash().String(),
@@ -64,7 +64,7 @@ func (t *TxSortedMap) PopMin(fees uint64) types.ITransaction {
 			ti := heap.Remove(t.index, 0).(*txInfo)
 			tx := t.txs[ti.address]
 			delete(t.txs, ti.address)
-			delete(t.cache, ti.address)
+			delete(t.cache, ti.txHash)
 			return tx
 		}
 	}
@@ -73,12 +73,14 @@ func (t *TxSortedMap) PopMin(fees uint64) types.ITransaction {
 
 func (t *TxSortedMap) Len() int { return len(t.txs) }
 
-func (t *TxSortedMap) IsExist(from string, txHash string) bool {
-	tx, ok := t.cache[from]
-	if ok {
-		return tx.Hash().String() == txHash
-	}
-	return false
+func (t *TxSortedMap) IsExist(txHash string) bool {
+	_, ok := t.cache[txHash]
+	return ok
+}
+
+func (t *TxSortedMap) GetTransaction(txHash string) (types.ITransaction, bool) {
+	tx, ok := t.cache[txHash]
+	return tx, ok
 }
 
 func (t *TxSortedMap) Remove(tx types.ITransaction) {
@@ -86,7 +88,7 @@ func (t *TxSortedMap) Remove(tx types.ITransaction) {
 		if ti.txHash == tx.Hash().String() {
 			heap.Remove(t.index, i)
 			delete(t.txs, tx.From().String())
-			delete(t.cache, tx.From().String())
+			delete(t.cache, tx.GetTxHead().TxHash.String())
 			return
 		}
 	}

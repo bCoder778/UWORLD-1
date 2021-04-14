@@ -137,22 +137,29 @@ func (rs *Server) GetTransaction(ctx context.Context, req *Hash) (*Response, err
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrParam, nil, "hash error"), nil
 	}
+	var confirmed bool
+	var height uint64
 	tx, err := rs.chain.GetTransaction(hash)
 	if err != nil {
-		return NewResponse(rpctypes.RpcErrBlockChain, nil, err.Error()), nil
+		tx, err = rs.txPool.GetTransaction(hash)
+		if err != nil {
+			return NewResponse(rpctypes.RpcErrBlockChain, nil, err.Error()), nil
+		}
+	} else {
+		confirmedHeight := rs.chain.GetConfirmedHeight()
+		index, err := rs.chain.GetTransactionIndex(hash)
+		if err != nil {
+			return NewResponse(rpctypes.RpcErrBlockChain, nil, fmt.Sprintf("%s is not exist", hash.String())), nil
+		}
+		height = index.GetHeight()
+		confirmed = confirmedHeight >= height
 	}
-	confirmed := rs.chain.GetConfirmedHeight()
-	index, err := rs.chain.GetTransactionIndex(hash)
-	if err != nil {
-		return NewResponse(rpctypes.RpcErrBlockChain, nil, fmt.Sprintf("%s is not exist", hash.String())), nil
-	}
-	height := index.GetHeight()
 	rpcTx, _ := coreTypes.TranslateTxToRpcTx(tx.(*coreTypes.Transaction))
 	rsMsg := &coreTypes.RpcTransactionConfirmed{
 		TxHead:    rpcTx.TxHead,
 		TxBody:    rpcTx.TxBody,
 		Height:    height,
-		Confirmed: confirmed >= height,
+		Confirmed: confirmed,
 	}
 	bytes, _ := json.Marshal(rsMsg)
 	return NewResponse(rpctypes.RpcSuccess, bytes, ""), nil

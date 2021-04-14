@@ -131,10 +131,26 @@ func (t *TxList) IsExist(from string, txHash string) bool {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	if !t.preparedTxs.IsExist(from, txHash) {
+	if !t.preparedTxs.IsExist(txHash) {
 		return t.futureTxs.IsExist(txHash)
 	}
 	return true
+}
+
+func (t *TxList) GetTransaction(hash string) (types.ITransaction, error) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	tx, isExist := t.preparedTxs.GetTransaction(hash)
+	if !isExist {
+		tx, isExist = t.futureTxs.GetTransaction(hash)
+		if isExist {
+			return tx, nil
+		} else {
+			return nil, fmt.Errorf("%s does not exist", hash)
+		}
+	}
+	return tx, nil
 }
 
 func (t *TxList) UpdateTxsList() {

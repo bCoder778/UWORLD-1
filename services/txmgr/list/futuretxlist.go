@@ -43,6 +43,11 @@ func (f *FutureTxList) IsExist(txHash string) bool {
 	return ok
 }
 
+func (f *FutureTxList) GetTransaction(txHash string) (types.ITransaction, bool) {
+	tx, ok := f.Txs[txHash]
+	return tx, ok
+}
+
 func (f *FutureTxList) GetNonceKeyHash(nonceKey string) string {
 	return f.nonceKeMap[nonceKey]
 }

@@ -3,6 +3,7 @@ package txmgr
 import (
 	"errors"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/config"
 	"github.com/uworldao/UWORLD/consensus"
 	"github.com/uworldao/UWORLD/core"
@@ -196,6 +197,10 @@ func (tp *TxPool) Remove(txs types.Transactions) {
 
 func (tp *TxPool) IsExist(tx types.ITransaction) bool {
 	return tp.txs.IsExist(tx.From().String(), tx.Hash().String())
+}
+
+func (tp *TxPool) GetTransaction(hash hasharry.Hash) (types.ITransaction, error) {
+	return tp.txs.GetTransaction(hash.String())
 }
 
 // Verify the transaction is legal

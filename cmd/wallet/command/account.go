@@ -25,6 +25,7 @@ func init() {
 		DecryptAccountCmd,
 		MnemonicToAccountCmd,
 		EcToAccountCmd,
+		P2PIDCmd,
 	}
 
 	RootCmd.AddCommand(accountCmds...)
@@ -90,6 +91,55 @@ func GetAccountByRpc(addr string) (*rpc.Response, error) {
 	defer cancel()
 	return client.Gc.GetAccount(ctx, &rpc.Address{Address: addr})
 
+}
+
+var P2PIDCmd = &cobra.Command{
+	Use:     "P2PID {address};Get account P2P ID;",
+	Aliases: []string{"P2P", "p2p"},
+	Short:   "P2PID {address};Get account P2P ID;",
+	Example: `
+	P2PID 23zE69fmaqK2LCHQrMQifTASSF1U 
+	`,
+	Args: cobra.MinimumNArgs(1),
+	Run:  P2PID,
+}
+
+func P2PID(cmd *cobra.Command, args []string) {
+	var passWd []byte
+	var err error
+	if len(args) == 2 && args[1] != "" {
+		passWd = []byte(args[1])
+	} else {
+		fmt.Println("please set account password, cannot exceed 32 bytes：")
+		passWd, err = readPassWd()
+		if err != nil {
+			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			return
+		}
+	}
+	if len(passWd) > 32 {
+		log.Error(cmd.Use+" err: ", fmt.Errorf("password too long! "))
+		return
+	}
+
+	keyFile := getAddJsonPath(args[0])
+
+	privKey, err := ReadAddrPrivate(keyFile, passWd)
+	if err != nil {
+		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		return
+	}
+	priv, err := secp256k1.ParseStringToPrivate(privKey.Private)
+	if err != nil {
+		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong private key"))
+		return
+	}
+	p2pId, err := p2p.GenerateP2pId(priv)
+	if err != nil {
+		log.Errorf("generate p2p id failed! %s", err.Error())
+		return
+	}
+	fmt.Println(p2pId.String())
 }
 
 var CreateAccountCmd = &cobra.Command{
@@ -370,8 +420,8 @@ func EcToAccount(cmd *cobra.Command, args []string) {
 		output(string(bytes))
 	}
 }
-func EcToAccountRpc(passWd []byte, private string) (*keystore.Json, error) {
 
+func EcToAccountRpc(passWd []byte, private string) (*keystore.Json, error) {
 	var err error
 	priv, err := secp256k1.ParseStringToPrivate(private)
 	if err != nil {

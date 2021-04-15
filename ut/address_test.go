@@ -1,7 +1,6 @@
 package ut
 
 import (
-	"fmt"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
 	"github.com/uworldao/UWORLD/param"
 	"testing"
@@ -11,8 +10,7 @@ func TestGenerateUWDAddress(t *testing.T) {
 	key, _ := secp256k1.GeneratePrivateKey()
 
 	address := GenerateUWDAddress(param.Net, key.PubKey())
-	fmt.Println(address.String())
-	if !CheckUWDAddress(param.Net, address.String()) {
+	if !CheckUWDAddress(param.Net, address) {
 		t.Fatal("failed")
 	}
 }
@@ -53,9 +51,9 @@ func TestGenerateContractAddress(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		{"1", args{"TN", address.String(), "BIT"}, true, false},
-		{"2", args{"TN", address.String(), "BIT"}, true, false},
-		{"3", args{"TN", address.String(), "BBB"}, true, false},
+		{"1", args{"TN", address, "BIT"}, true, false},
+		{"2", args{"TN", address, "BIT"}, true, false},
+		{"3", args{"TN", address, "BBB"}, true, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -64,7 +62,7 @@ func TestGenerateContractAddress(t *testing.T) {
 				t.Errorf("GenerateContractAddress() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			check := CheckContractAddress(tt.args.version, tt.args.address, tt.args.name, got.String())
+			check := CheckContractAddress(tt.args.version, tt.args.address, tt.args.name, got)
 			if check != tt.want {
 				t.Errorf("GenerateContractAddress() got = %v, want %v", check, tt.want)
 			}

@@ -27,7 +27,7 @@ const (
 )
 
 const maxReadBytes = 1024 * 10
-const MaxRequestBytes = maxReadBytes * 1000
+const MaxRequestBytes = maxReadBytes * 1024
 const readTimeOut = 30
 
 type MessageCode int

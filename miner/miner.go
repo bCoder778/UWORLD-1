@@ -13,7 +13,7 @@ import (
 
 const resultChanSize = 10
 const maxBlockTransactions = 9999
-const maxTransactionsSize uint64 = 1024 * 1024 * 2024
+const maxTransactionsSize uint64 = 1024 * 1024 * 1
 
 // Generate block miner
 type Miner struct {

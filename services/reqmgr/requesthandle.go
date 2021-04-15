@@ -14,7 +14,7 @@ var ErrorBlockNotFound = errors.New("block not exist")
 var ErrorPeerClose = errors.New("peer is close")
 
 const maxGetBlockCount = 50
-const maxGetBlockSize = 1024 * 1024 * 1024 * 2
+const maxGetBlockSize = 1024 * 1024 * 2
 
 type RWRequest struct {
 	request *Request

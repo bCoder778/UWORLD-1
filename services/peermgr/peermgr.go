@@ -102,7 +102,7 @@ func (pm *PeerManager) isPeerLive(peer *p2p.PeerInfo) bool {
 	return true
 }
 
-func (pm *PeerManager) GetPeer() *p2p.PeerInfo {
+func (pm *PeerManager) RandPeer() *p2p.PeerInfo {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
 
@@ -112,6 +112,17 @@ func (pm *PeerManager) GetPeer() *p2p.PeerInfo {
 	index := rand.New(rand.NewSource(time.Now().Unix())).Int31n(int32(len(pm.peerIds)))
 	peerId := pm.peerIds[index]
 	return pm.peersMap[peerId]
+}
+
+func (pm *PeerManager) GetPeer(id string) *p2p.PeerInfo {
+	pm.mutex.RLock()
+	defer pm.mutex.RUnlock()
+
+	if peer, ok := pm.peersMap[id]; !ok {
+		return nil
+	} else {
+		return peer
+	}
 }
 
 func (pm *PeerManager) LocalPeerInfo() *p2p.PeerInfo {

@@ -91,6 +91,7 @@ func (rm *RequestManager) readBytes(stream network.Stream) ([]byte, error) {
 	var n int
 	bytesLen := 0
 	byteArr := rm.pool.Get().([]byte)
+	//byteArr := make([]byte, maxReadBytes)
 	for bytesLen < MaxRequestBytes {
 		resetBytes(byteArr)
 		n, err = stream.Read(byteArr)

@@ -1,7 +1,6 @@
 package blkmgr
 
 import (
-	"errors"
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -10,8 +9,8 @@ import (
 	"github.com/uworldao/UWORLD/core/types"
 	log "github.com/uworldao/UWORLD/log/log15"
 	"github.com/uworldao/UWORLD/p2p"
-	"github.com/uworldao/UWORLD/services/reqmgr"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -32,6 +31,7 @@ type BlockManager struct {
 	needHash    []byte
 	quitCh      chan bool
 	isQuit      chan bool
+	mutex       sync.RWMutex
 }
 
 type ICreateStream interface {
@@ -91,29 +91,6 @@ func (bm *BlockManager) syncBlock() {
 // Create a network channel of the synchronization block, and randomly
 // select a new peer node for synchronization every 1s.
 func (bm *BlockManager) createSyncStream() {
-	for {
-		select {
-		case _, _ = <-bm.quitCh:
-			log.Info("Create sync stream quit")
-			return
-		default:
-			bm.findSyncPeer()
-
-			if err := bm.createStream(); err != nil {
-				/*log.Debug("The current peer is closed，choose again", "closed peer", bm.syncPeer.AddrInfo)*/
-				if bm.syncPeer != nil {
-					bm.peerManager.Remove(bm.syncPeer.AddrInfo.ID.String())
-				}
-			} else {
-				bm.syncPeer.Close()
-			}
-			return
-		}
-	}
-}
-
-// Replace the new peer node
-func (bm *BlockManager) findSyncPeer() {
 	t := time.NewTicker(time.Second * getPeerInterval)
 	defer t.Stop()
 
@@ -123,28 +100,36 @@ func (bm *BlockManager) findSyncPeer() {
 			log.Info("Find sync peer quit")
 			return
 		case _ = <-t.C:
-			bm.syncPeer = bm.peerManager.GetPeer()
-			if bm.syncPeer == nil {
-				//log.Warn("No available peers were found， wait...")
-			} else {
-				//log.Info("Find an available peer", "peer", bm.syncPeer)
-				return
+			peerInfo := bm.peerManager.RandPeer()
+			if peerInfo != nil {
+				err := bm.setSyncStream(peerInfo)
+				if err == nil {
+					return
+				}
 			}
 		}
 	}
 }
 
 // Create node communication stream
-func (bm *BlockManager) createStream() error {
-	if bm.syncPeer == nil {
-		return errors.New("sync peer is nil")
-	}
+func (bm *BlockManager) setSyncStream(info *p2p.PeerInfo) error {
+	bm.mutex.Lock()
+	defer bm.mutex.Unlock()
+
+	bm.syncPeer = info
 	stream, err := bm.syncPeer.NewStreamFunc(bm.syncPeer.PeerId)
 	if err != nil {
 		return err
 	}
 	bm.syncPeer.StreamCreator.Stream = stream
 	return nil
+}
+
+func (bm *BlockManager) getSync() *p2p.PeerInfo {
+	bm.mutex.RLock()
+	defer bm.mutex.RUnlock()
+
+	return bm.syncPeer
 }
 
 // Synchronize blocks from the stream and verify storage
@@ -162,34 +147,25 @@ func (bm *BlockManager) syncBlockFromStream() error {
 			// If the storage fails locally, the remote block verification
 			// is performed, the verification proves that the local block
 			// is wrong, and the local chain is rolled back to the valid block.
-			blocks, err := bm.network.GetBlocksByHeight(bm.syncPeer.StreamCreator, localHeight+1)
+			syncPeer := bm.getSync()
+			blocks, err := bm.network.GetBlocksByHeight(syncPeer.StreamCreator, localHeight+1)
 			if err != nil {
-				if err == reqmgr.ErrorPeerClose {
-					bm.peerManager.Remove(bm.syncPeer.AddrInfo.ID.String())
-				}
 				return err
 			}
-			/*if err := bm.blockChain.InsertChain(block); err != nil {
-				log.Warn("Insert chain failed!", "error", err, "height", block.Height)
-				if bm.remoteValidation(block.Header) {
-					bm.fallBack()
-					return err
-				}
-				bm.peerManager.Remove(bm.syncPeer.AddrInfo.ID.String())
-				return err
-			}*/
-			if err := bm.insertBlocksToChain(blocks); err != nil {
+			if err := bm.insertBlocksToChain(blocks, syncPeer.AddrInfo.String()); err != nil {
 				return err
 			}
 		}
 	}
-	return nil
 }
 
-func (bm *BlockManager) insertBlocksToChain(blocks []*types.Block) error {
+func (bm *BlockManager) insertBlocksToChain(blocks []*types.Block, peerAddr string) error {
+	var err error
 	var start, end uint64
 	defer func() {
-		log.Info("Sync blocks", "blocks", fmt.Sprintf("%d-%d", start, end), "peer", bm.syncPeer.AddrInfo.String())
+		if err == nil {
+			log.Info("Sync blocks", "blocks", fmt.Sprintf("%d-%d", start, end), "peer", peerAddr)
+		}
 	}()
 
 	for i, block := range blocks {
@@ -201,19 +177,20 @@ func (bm *BlockManager) insertBlocksToChain(blocks []*types.Block) error {
 			log.Info("Insert blocks quit")
 			return nil
 		default:
-			if err := bm.blockChain.InsertChain(block); err != nil {
-				log.Warn("Insert chain failed!", "error", err, "height", block.Height)
-				if bm.remoteValidation(block.Header) {
+			if err = bm.blockChain.InsertChain(block); err != nil {
+				log.Warn("Insert chain failed!", "error", err, "height", block.Height, "hash", block.Hash, "signer", block.Signer)
+				if err == core.ErrDuplicateBlock {
+					continue
+				}
+				if ok, peerId := bm.IsFallBack(block.Header); ok {
 					bm.fallBack()
-					return err
-				} else {
-					localPreHeader, _ := bm.blockChain.GetHeaderByHeight(block.Height - 1)
-					if !bm.remoteValidation(localPreHeader) {
-						bm.fallBack()
+					if peerInfo := bm.peerManager.GetPeer(peerId); peerInfo == nil {
 						return err
+					} else {
+						bm.setSyncStream(peerInfo)
+						return nil
 					}
 				}
-				bm.peerManager.Remove(bm.syncPeer.AddrInfo.ID.String())
 				return err
 			}
 		}
@@ -234,9 +211,9 @@ func (bm *BlockManager) remoteValidation(header *types.Header) bool {
 	}
 	localHeader, err := bm.blockChain.GetHeaderByHeight(header.Height)
 	if err == nil && localHeader.Hash.IsEqual(header.Hash) {
+		log.Info("Validation block equal with local", "hash", header.Hash)
 		hashCount = 1
 	}
-
 	for _, id := range ids {
 		if id != bm.peerManager.LocalPeerInfo().AddrInfo.ID.String() {
 			peerId := new(peer.ID)
@@ -245,14 +222,61 @@ func (bm *BlockManager) remoteValidation(header *types.Header) bool {
 				ok, err := bm.network.ValidationBlockHash(&streamCreator, header)
 				if err == nil && ok {
 					hashCount++
+				} else if err != nil {
+					log.Error("Validation block hash failed!", "err", err.Error(), "peer", id)
 				}
 			}
 		}
 	}
 	if hashCount > len(ids)/2 {
+		log.Info("Remote validation success", "hash", hashCount)
 		return true
 	}
+	log.Info("Remote validation failed", "hash", hashCount)
 	return false
+}
+
+func (bm *BlockManager) IsFallBack(header *types.Header) (bool, string) {
+	localLast := bm.blockChain.GetLastHeight()
+	var maxLast uint64 = 0
+	var maxPeer = new(peer.ID)
+	ids, err := bm.consensus.GetWinnersPeerID(header.Time)
+	if err != nil {
+		return false, ""
+	}
+	for _, id := range ids {
+		if id != bm.peerManager.LocalPeerInfo().AddrInfo.ID.String() {
+			peerId := new(peer.ID)
+			if err = peerId.UnmarshalText([]byte(id)); err == nil {
+				streamCreator := p2p.StreamCreator{PeerId: *peerId, NewStreamFunc: bm.newStream.CreateStream}
+				height, err := bm.network.GetLastHeight(&streamCreator)
+				log.Info("Remote height!", "height", height, "peer", id)
+				if err == nil {
+					if height > maxLast {
+						maxLast = height
+						maxPeer = peerId
+					}
+				} else if err != nil {
+					log.Error("Get last height failed!", "err", err.Error(), "peer", id)
+				}
+			}
+		}
+	}
+
+	if maxLast > localLast {
+		log.Info("Find the highest node", "remote height", maxLast, "local height", localLast, "remote peer", maxPeer.String())
+		streamCreator := p2p.StreamCreator{PeerId: *maxPeer, NewStreamFunc: bm.newStream.CreateStream}
+		ok, err := bm.network.ValidationBlockHash(&streamCreator, header)
+		if ok {
+			return true, maxPeer.String()
+		} else if err != nil {
+			log.Error("Failed to validation block hash!", "hash", header.Hash, "err", err.Error(), "remote peer", maxPeer.String())
+		} else {
+			return false, ""
+		}
+	}
+
+	return false, ""
 }
 
 // Remotely verify the block, if the block height is less than
@@ -325,11 +349,15 @@ func (bm *BlockManager) broadCastBlock(block *types.Block) {
 			peerId := new(peer.ID)
 			if err = peerId.UnmarshalText([]byte(id)); err == nil {
 				streamCreator := p2p.StreamCreator{PeerId: *peerId, NewStreamFunc: bm.newStream.CreateStream}
-				if err := bm.network.SendBlock(&streamCreator, block); err != nil {
-					log.Warn("Failed to send block", "height", block.Height, "target", id, "error", err)
-				}
+				go bm.sendBlock(&streamCreator, block)
 			}
 		}
+	}
+}
+
+func (bm *BlockManager) sendBlock(creator *p2p.StreamCreator, block *types.Block) {
+	if err := bm.network.SendBlock(creator, block); err != nil {
+		log.Warn("Failed to send block", "height", block.Height, "target", creator.PeerId.String(), "error", err)
 	}
 }
 
@@ -358,24 +386,21 @@ func (bm *BlockManager) dealReceivedBlock(block *types.Block) {
 	if localHeight == block.Height-1 {
 		if err := bm.blockChain.InsertChain(block); err != nil {
 			log.Warn("Failed to insert received block", "err", err, "height", block.Height, "singer", block.Signer.String())
+		} else {
+			log.Info("Received block", "height", block.Height, "singer", block.Signer.String())
 		}
 	} else if block.Height <= localHeight {
 		if localHeader, err := bm.blockChain.GetHeaderByHeight(block.Height); err == nil {
 			if !localHeader.Hash.IsEqual(block.Hash) {
-				if bm.remoteValidation(block.Header) {
+				log.Info("Local block is not equal received block hash", "local", localHeader.Hash, "received", block.Hash)
+				if ok, peerId := bm.IsFallBack(block.Header); ok {
 					bm.fallBack()
-				} else {
-					if !bm.remoteValidation(localHeader) {
-						bm.fallBack()
-					} else {
-						log.Warn("Remote validation failed!", "height", block.Height, "signer", block.Signer.String())
+					if peerInfo := bm.peerManager.GetPeer(peerId); peerInfo != nil {
+						bm.setSyncStream(peerInfo)
 					}
-
+				} else {
+					log.Warn("Remote validation failed!", "height", block.Height, "signer", block.Signer.String())
 				}
-			}
-		} else {
-			if err := bm.blockChain.InsertChain(block); err != nil {
-				log.Warn("Failed to insert received block", "err", err, "height", block.Height, "singer", block.Signer.String())
 			}
 		}
 	}

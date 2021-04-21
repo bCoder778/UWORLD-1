@@ -25,6 +25,7 @@ type BlockChain struct {
 	consensus     consensus.IConsensus
 	storage       IBlockChainStorage
 	mutex         sync.RWMutex
+	insertMutex   sync.Mutex
 	stateUpdateCh chan struct{}
 
 	// List of transactions that have been stored and need
@@ -211,6 +212,9 @@ func (blc *BlockChain) GetTermLastHash(term uint64) (hasharry.Hash, error) {
 }
 
 func (blc *BlockChain) InsertChain(block *types.Block) error {
+	blc.insertMutex.Lock()
+	defer blc.insertMutex.Unlock()
+
 	if _, err := blc.GetBlockByHeight(block.Height - 1); err != nil {
 		return err
 	}
@@ -366,8 +370,12 @@ func (blc *BlockChain) VerifyGenesis(block *types.Block) error {
 
 func (blc *BlockChain) verifyBlock(block *types.Block) error {
 	if block.Height <= blc.GetLastHeight() {
-		return ErrDuplicateBlock
+		localBlock, err := blc.GetBlockByHeight(block.Height)
+		if err == nil && localBlock.Hash.IsEqual(block.Hash) {
+			return ErrDuplicateBlock
+		}
 	}
+
 	if !block.VerifyTxRoot() {
 		log.Warn("tx root wrong", "height", block.Header.Height, "tx root", block.Header.StateRoot.String())
 		return errors.New("wrong tx root")
@@ -541,7 +549,10 @@ func (blc *BlockChain) FallBackTo(height uint64) error {
 }
 
 func (blc *BlockChain) FallBack() {
-	blc.FallBackTo(blc.GetConfirmedHeight())
+	err := blc.FallBackTo(blc.GetConfirmedHeight())
+	if err != nil {
+		blc.FallBackTo(blc.GetConfirmedHeight() - param.MaxWinnerSize)
+	}
 }
 
 func (blc *BlockChain) dealBlock(block *types.Block) error {

@@ -177,7 +177,7 @@ func (n *Node) PeersInfo() []*types.NodeInfo {
 }
 
 func (n *Node) updatePeers() {
-	t := time.NewTimer(time.Second * 60 * 1)
+	t := time.NewTicker(time.Second * 60 * 1)
 	defer t.Stop()
 
 	for {

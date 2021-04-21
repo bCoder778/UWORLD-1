@@ -354,9 +354,5 @@ func CalCoinBase(height, startHeight uint64) uint64 {
 }
 
 func TransferFees(receiverCount int) uint64 {
-	if receiverCount < 10 {
-		return param.Fees
-	} else {
-		return param.Fees * uint64(receiverCount) / 10
-	}
+	return param.Fees
 }

@@ -29,7 +29,7 @@ type Peers interface {
 func NewRequestManger(blockChain core.IBlockChain, recBlkCh chan *types.Block, recTx chan types.ITransaction, peers Peers) *RequestManager {
 	return &RequestManager{
 		blockChain:  blockChain,
-		requestChan: make(chan *RWRequest, 100),
+		requestChan: make(chan *RWRequest, 1000),
 		recBlkCh:    recBlkCh,
 		recTx:       recTx,
 		pool: sync.Pool{

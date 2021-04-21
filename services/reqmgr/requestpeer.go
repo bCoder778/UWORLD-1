@@ -180,6 +180,8 @@ func (rm *RequestManager) SendBlock(stream *p2p.StreamCreator, block *types.Bloc
 		s.Close()
 	}()
 
+	log.Info("Send block to peer", "height", block.Height, "peer", s.Conn().RemoteMultiaddr().String())
+
 	s.SetDeadline(time.Unix(time.Now().Unix()+readTimeOut, 0))
 	bytes, err := rlp.EncodeToBytes(block.TranslateToRlpBlock())
 	if err != nil {

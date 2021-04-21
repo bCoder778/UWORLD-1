@@ -42,7 +42,8 @@ type P2pServer struct {
 type IPeerManager interface {
 	SetLocalPeerInfo(*PeerInfo)
 	LocalPeerInfo() *PeerInfo
-	GetPeer() *PeerInfo
+	RandPeer() *PeerInfo
+	GetPeer(id string) *PeerInfo
 	HashPeer(id string) bool
 	Peers() map[string]*PeerInfo
 	Remove(id string)

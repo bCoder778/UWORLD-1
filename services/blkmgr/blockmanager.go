@@ -389,7 +389,7 @@ func (bm *BlockManager) dealReceivedBlock(block *types.Block) {
 		} else {
 			log.Info("Received block", "height", block.Height, "singer", block.Signer.String())
 		}
-	} else if block.Height <= localHeight {
+	} /*else if block.Height <= localHeight {
 		if localHeader, err := bm.blockChain.GetHeaderByHeight(block.Height); err == nil {
 			if !localHeader.Hash.IsEqual(block.Hash) {
 				log.Info("Local block is not equal received block hash", "local", localHeader.Hash, "received", block.Hash)
@@ -403,7 +403,7 @@ func (bm *BlockManager) dealReceivedBlock(block *types.Block) {
 				}
 			}
 		}
-	}
+	}*/
 }
 
 func getMaxCountHash(compareMap map[string][]string) string {

@@ -111,6 +111,13 @@ func (t *TxList) RemoveMinFeeTx(newTx types.ITransaction) {
 	t.preparedTxs.PopMin(newTx.GetFees())
 }
 
+func (t *TxList) GetPreparedStuck(sec uint64) types.Transactions {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.preparedTxs.GetStuck(sec)
+}
+
 func (t *TxList) Gets(count int) types.Transactions {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()

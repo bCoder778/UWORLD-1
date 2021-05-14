@@ -9,15 +9,14 @@ import (
 )
 
 type TransferV2Body struct {
-	Contract hasharry.Address
-	Receivers    *Receivers
+	Contract  hasharry.Address
+	Receivers *Receivers
 }
 
 type Receiver struct {
 	Address hasharry.Address
 	Amount  uint64
 }
-
 
 func (tb *TransferV2Body) ToAddress() *Receivers {
 	return tb.Receivers
@@ -72,7 +71,6 @@ func (tb *TransferV2Body) VerifyBody(from hasharry.Address) error {
 	}
 	return nil
 }
-
 
 type Receivers struct {
 	List []*Receiver

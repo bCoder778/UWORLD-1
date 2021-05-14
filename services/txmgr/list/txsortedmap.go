@@ -53,6 +53,16 @@ func (t *TxSortedMap) Gets(count int) types.Transactions {
 	return txs
 }
 
+func (t *TxSortedMap) GetStuck(sec uint64) types.Transactions {
+	var txs = types.Transactions{}
+	for _, tx := range t.cache {
+		if tx.GetTime() <= sec {
+			txs = append(txs, tx)
+		}
+	}
+	return txs
+}
+
 func (t *TxSortedMap) GetByAddress(addr string) types.ITransaction {
 	return t.txs[addr]
 }

@@ -19,7 +19,9 @@ import (
 // Clear the expired transaction interval
 const monitorTxInterval = 20
 
-const txChanLength = 50
+const reBroadcastInterval = 60 * 2
+
+const txChanLength = 500
 
 // Maximum number of transactions in the transaction pool
 const maxPoolTx = 50000
@@ -70,6 +72,7 @@ func (tp *TxPool) Start() error {
 
 	go tp.monitorTxTime()
 	go tp.dealTx()
+	go tp.reBroadcast()
 
 	log.Info("Transaction pool startup successful")
 	return nil
@@ -88,6 +91,22 @@ func (tp *TxPool) monitorTxTime() {
 
 	for range t.C {
 		tp.clearExpiredTx()
+	}
+}
+
+func (tp *TxPool) reBroadcast() {
+	t := time.NewTicker(time.Second * reBroadcastInterval)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-t.C:
+			txs := tp.txs.GetPreparedStuck(uint64(time.Now().Unix()) - reBroadcastInterval)
+			log.Info("Send stuck transaction", "txs", txs.Len())
+			for _, tx := range txs {
+				tp.txChan <- tx
+			}
+		}
 	}
 }
 

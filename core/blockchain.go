@@ -276,14 +276,14 @@ func (blc *BlockChain) SaveGenesisBlock(block *types.Block) error {
 func (blc *BlockChain) updateState(block *types.Block) error {
 	for _, tx := range block.Body.Transactions {
 		switch tx.GetTxType() {
-		case types.NormalTransaction:
+		case types.Transfer_:
 			if err := blc.accountState.UpdateFrom(tx, block.Height); err != nil {
 				return err
 			}
 			if err := blc.accountState.UpdateTo(tx, block.Height); err != nil {
 				return err
 			}
-		case types.ContractTransaction:
+		case types.Contract_:
 			if err := blc.accountState.UpdateFrom(tx, block.Height); err != nil {
 				return err
 			}
@@ -311,7 +311,7 @@ func (blc *BlockChain) updateState(block *types.Block) error {
 func (blc *BlockChain) updateGenesisState(block *types.Block) error {
 	for _, tx := range block.Body.Transactions {
 		switch tx.GetTxType() {
-		case types.NormalTransaction:
+		case types.Transfer_:
 			if err := blc.accountState.UpdateTo(tx, block.Height); err != nil {
 				return err
 			}
@@ -416,7 +416,7 @@ func (blc *BlockChain) verifyTx(tx types.ITransaction, blockHeight uint64) error
 
 func (blc *BlockChain) verifyBusiness(tx types.ITransaction, blockHeight uint64) error {
 	switch tx.GetTxType() {
-	case types.NormalTransaction:
+	case types.Transfer_:
 		account := blc.accountState.GetAccountState(tx.From())
 		return account.VerifyNonce(tx.GetNonce())
 	}

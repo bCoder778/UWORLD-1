@@ -54,7 +54,7 @@ func TranslateRpcTxToTx(rpcTx *RpcTransaction) (*Transaction, error) {
 	}
 	var txBody ITransactionBody
 	switch rpcTx.TxHead.TxType {
-	case NormalTransaction:
+	case Transfer_:
 		body := &RpcNormalTransactionBody{}
 		bytes, err := json.Marshal(rpcTx.TxBody)
 		if err != nil {
@@ -65,7 +65,7 @@ func TranslateRpcTxToTx(rpcTx *RpcTransaction) (*Transaction, error) {
 			return nil, err
 		}
 		txBody, err = translateRpcNormalBodyToBody(body)
-	case ContractTransaction:
+	case Contract_:
 		body := &RpcContractTransactionBody{}
 		bytes, err := json.Marshal(rpcTx.TxBody)
 		if err != nil {
@@ -116,13 +116,13 @@ func TranslateTxToRpcTx(tx *Transaction) (*RpcTransaction, error) {
 		TxBody: nil,
 	}
 	switch tx.GetTxType() {
-	case NormalTransaction:
+	case Transfer_:
 		rpcTx.TxBody = &RpcNormalTransactionBody{
 			Contract: tx.GetTxBody().GetContract().String(),
 			To:       tx.GetTxBody().ToAddress().String(),
 			Amount:   tx.GetTxBody().GetAmount(),
 		}
-	case ContractTransaction:
+	case Contract_:
 		rpcTx.TxBody = &RpcContractTransactionBody{
 			Contract:    tx.GetTxBody().GetContract().String(),
 			To:          tx.GetTxBody().ToAddress().String(),

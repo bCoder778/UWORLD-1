@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	NormalTransaction TransactionType = iota
-	ContractTransaction
+	Transfer_ TransactionType = iota
+	Contract_
 	LoginCandidate
 	/*LogoutCandidate
 	VoteToCandidate*/
@@ -121,9 +121,9 @@ func (t *Transaction) VerifyCoinBaseTx(height, sumFees uint64) error {
 func (t *Transaction) verifyTxFees() error {
 	var fees uint64
 	switch t.TxHead.TxType {
-	case NormalTransaction:
+	case Transfer_:
 		fees = param.Fees
-	case ContractTransaction:
+	case Contract_:
 		fees = param.TokenConsumption
 	}
 	if t.TxHead.Fees != fees {
@@ -146,9 +146,9 @@ func (t *Transaction) verifyTxSinger() error {
 func (t *Transaction) verifyTxSize() error {
 	// TODO change maxsize
 	switch t.TxHead.TxType {
-	case NormalTransaction:
+	case Transfer_:
 		fallthrough
-	case ContractTransaction:
+	case Contract_:
 		return nil
 		/*case LogoutCandidate:
 			fallthrough
@@ -188,9 +188,9 @@ func (t *Transaction) verifyTxFrom() error {
 
 func (t *Transaction) verifyTxType() error {
 	switch t.TxHead.TxType {
-	case NormalTransaction:
+	case Transfer_:
 		return nil
-	case ContractTransaction:
+	case Contract_:
 		return nil
 		/*case VoteToCandidate:
 			return nil

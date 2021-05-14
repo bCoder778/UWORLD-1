@@ -103,7 +103,7 @@ func (dpos *DPos) GetGenesisBlock() *types.Block {
 		tx := &types.Transaction{
 			TxHead: &types.TransactionHead{
 				TxHash:     hasharry.Hash{},
-				TxType:     types.NormalTransaction,
+				TxType:     types.Transfer_,
 				From:       hasharry.StringToAddress(info.Address),
 				Nonce:      0,
 				Fees:       0,

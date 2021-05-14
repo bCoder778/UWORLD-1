@@ -10,7 +10,7 @@ import (
 func NewTransaction(from, to, token string, note string, amount, nonce uint64) *types.Transaction {
 	tx := &types.Transaction{
 		TxHead: &types.TransactionHead{
-			TxType:     types.NormalTransaction,
+			TxType:     types.Transfer_,
 			TxHash:     hasharry.Hash{},
 			From:       hasharry.StringToAddress(from),
 			Nonce:      nonce,
@@ -32,7 +32,7 @@ func NewTransaction(from, to, token string, note string, amount, nonce uint64) *
 func NewContract(from, to, contract string, note string, amount, nonce uint64, name, abbr string, increase bool, description string) *types.Transaction {
 	tx := &types.Transaction{
 		TxHead: &types.TransactionHead{
-			TxType:     types.ContractTransaction,
+			TxType:     types.Contract_,
 			TxHash:     hasharry.Hash{},
 			From:       hasharry.StringToAddress(from),
 			Nonce:      nonce,

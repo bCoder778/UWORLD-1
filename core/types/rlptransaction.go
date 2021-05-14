@@ -9,14 +9,14 @@ type RlpTransaction struct {
 
 func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
 	switch rt.TxHead.TxType {
-	case NormalTransaction:
+	case Transfer_:
 		var nt *NormalTransactionBody
 		rlp.DecodeBytes(rt.TxBody, &nt)
 		return &Transaction{
 			TxHead: rt.TxHead,
 			TxBody: nt,
 		}
-	case ContractTransaction:
+	case Contract_:
 		var ct *ContractBody
 		rlp.DecodeBytes(rt.TxBody, &ct)
 		return &Transaction{

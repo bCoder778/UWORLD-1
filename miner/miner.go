@@ -160,7 +160,7 @@ func (miner *Miner) generateCoinBaseTx(coinBase uint64) types.ITransaction {
 	return &types.Transaction{
 		TxHead: &types.TransactionHead{
 			TxHash:     hasharry.Hash{},
-			TxType:     types.NormalTransaction,
+			TxType:     types.Transfer_,
 			From:       hasharry.StringToAddress(types.CoinBase),
 			Nonce:      0,
 			Fees:       0,

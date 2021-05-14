@@ -174,7 +174,7 @@ func (a *Account) IsNeedUpdate() bool {
 
 // Change the account status of the party that transferred the transaction
 func (a *Account) FromChange(tx ITransaction, blockHeight uint64) error {
-	if tx.GetTxType() == ContractTransaction {
+	if tx.GetTxType() == Contract_ {
 		return a.fromContractChange(tx, blockHeight)
 	}
 	if a.Nonce+1 != tx.GetNonce() {
@@ -298,7 +298,7 @@ func (a *Account) ToChange(tx ITransaction, blockHeight uint64) error {
 	if !a.IsExist() {
 		a.Address = txBody.ToAddress()
 	}
-	if tx.GetTxType() == ContractTransaction {
+	if tx.GetTxType() == Contract_ {
 		return a.toContractChange(tx, blockHeight)
 	}
 
@@ -385,13 +385,13 @@ func (a *Account) VerifyTxState(tx ITransaction) error {
 
 	// Verify the balance of the token
 	switch tx.GetTxType() {
-	case NormalTransaction:
+	case Transfer_:
 		if tx.GetTxBody().GetContract() == param.Token {
 			return a.verifyTokenTxBalance(tx)
 		} else {
 			return a.verifyCoinTxBalance(tx)
 		}
-	case ContractTransaction:
+	case Contract_:
 		return a.verifyFees(tx)
 	default:
 		if tx.GetTxBody().GetAmount() != 0 {

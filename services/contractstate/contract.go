@@ -58,7 +58,7 @@ func (c *ContractState) VerifyState(tx types.ITransaction) error {
 	c.contractMutex.RLock()
 	defer c.contractMutex.RUnlock()
 
-	if tx.GetTxType() != types.ContractTransaction {
+	if tx.GetTxType() != types.Contract_ {
 		return nil
 	}
 	contractAddr := tx.GetTxBody().GetContract()

@@ -1,8 +1,11 @@
 package contractstate
 
 import (
+	"fmt"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types"
+	"github.com/uworldao/UWORLD/core/types/contractv2"
+	"github.com/uworldao/UWORLD/core/types/functionbody"
 	"github.com/uworldao/UWORLD/database/contractdb"
 	"sync"
 )
@@ -58,22 +61,32 @@ func (c *ContractState) VerifyState(tx types.ITransaction) error {
 	c.contractMutex.RLock()
 	defer c.contractMutex.RUnlock()
 
-	if tx.GetTxType() != types.Contract_ {
-		return nil
+	switch tx.GetTxType() {
+	case types.Contract_:
+		contractAddr := tx.GetTxBody().GetContract()
+		contract := c.contractDb.GetContractState(contractAddr.String())
+		if contract != nil {
+			return contract.Verify(tx)
+		}
+	case types.ContractV2_:
+		body, _ := tx.GetTxBody().(*types.ContractV2Body)
+		contractAddr := tx.GetTxBody().GetContract()
+		contract := c.contractDb.GetContractV2State(contractAddr.String())
+		if contract != nil {
+			return contract.Verify(body.FunctionType)
+		}
 	}
-	contractAddr := tx.GetTxBody().GetContract()
-	contract := c.contractDb.GetContractState(contractAddr.String())
-	if contract != nil {
-		return contract.Verify(tx)
-	}
+
 	return nil
 }
 
-// Update contract status
 func (c *ContractState) UpdateContract(tx types.ITransaction, blockHeight uint64) {
 	c.contractMutex.Lock()
 	defer c.contractMutex.Unlock()
 
+	if tx.GetTxType() != types.Contract_ {
+		return
+	}
 	txBody := tx.GetTxBody()
 	contractRecord := &types.ContractRecord{
 		Height:   blockHeight,
@@ -99,6 +112,35 @@ func (c *ContractState) UpdateContract(tx types.ITransaction, blockHeight uint64
 		}
 	}
 	c.contractDb.SetContractState(contract)
+}
+
+func (c *ContractState) UpdateContractV2(tx types.ITransaction, blockHeight uint64) error {
+	c.contractMutex.Lock()
+	defer c.contractMutex.Unlock()
+
+	body, _ := tx.GetTxBody().(*types.ContractV2Body)
+	switch body.FunctionType {
+	case contractv2.Exchange_Init_:
+		return c.exchangeInit(tx.GetTxHead(), body, blockHeight)
+	}
+	return nil
+}
+
+func (c *ContractState) exchangeInit(head *types.TransactionHead, body *types.ContractV2Body, height uint64) error {
+	contract := &contractv2.ContractV2{
+		Address:    body.GetContract(),
+		CreateHash: head.TxHash,
+		Type:       body.Type,
+		Body:       nil,
+	}
+	contractV2 := c.contractDb.GetContractV2State(contract.Address.String())
+	if contractV2 != nil {
+		return fmt.Errorf("exchanges %s already exist", contract.Address.String())
+	}
+	initBody := body.Function.(*functionbody.ExchangeInitBody)
+	contract.Body = contractv2.NewExchange(initBody.FeeToSetter, initBody.FeeTo)
+	c.contractDb.SetContractV2State(contract)
+	return nil
 }
 
 func (c *ContractState) Close() error {

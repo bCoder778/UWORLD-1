@@ -291,6 +291,13 @@ func (blc *BlockChain) updateState(block *types.Block) error {
 				return err
 			}
 			blc.contractState.UpdateContract(tx, block.Height)
+		case types.ContractV2_:
+			if err := blc.accountState.UpdateFrom(tx, block.Height); err != nil {
+				return err
+			}
+			if err := blc.contractState.UpdateContractV2(tx, block.Height); err != nil {
+				return err
+			}
 			/*case types.VoteToCandidate:
 				fallthrough
 			case types.LoginCandidate:

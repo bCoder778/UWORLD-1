@@ -3,7 +3,7 @@ package ut
 import (
 	"bytes"
 	"errors"
-	"fmt"
+	"github.com/uworldao/UWORLD/common/codec"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/crypto/base58"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
@@ -15,13 +15,13 @@ import (
 const addressLength = 36
 const addressBytesLength = 27
 
-// Generate address by secp256k1 public key
+// GenerateAddress Generate address by secp256k1 public key
 func GenerateAddress(version string, key *secp256k1.PublicKey) (string, error) {
 	addr := GenerateUWDAddress(version, key)
 	return addr, nil
 }
 
-// Check the secondary account name, it must be letters,
+// CheckAbbr Check the secondary account name, it must be letters,
 // all uppercase or all lowercase, no more than 10
 // characters and no less than 2.
 func CheckAbbr(abbr string) error {
@@ -39,7 +39,7 @@ func CheckAbbr(abbr string) error {
 	return nil
 }
 
-// Generate UWD address
+// GenerateUWDAddress Generate UWD address
 func GenerateUWDAddress(version string, key *secp256k1.PublicKey) string {
 	ver := []byte{}
 	switch version {
@@ -61,7 +61,7 @@ func GenerateUWDAddress(version string, key *secp256k1.PublicKey) string {
 	return base58.Encode(hashedCheck1)
 }
 
-// Verify UWD address
+// CheckUWDAddress Verify UWD address
 func CheckUWDAddress(version string, addr string) bool {
 	ver := []byte{}
 	switch version {
@@ -95,7 +95,7 @@ func CheckUWDAddress(version string, addr string) bool {
 	return bytes.Compare(checkSum, checkBytesHashed2[0:4]) == 0
 }
 
-// Generate contract address
+// GenerateContractAddress Generate contract address
 func GenerateContractAddress(net string, address string, abbr string) (string, error) {
 	ver := []byte{}
 	switch net {
@@ -114,7 +114,6 @@ func GenerateContractAddress(net string, address string, abbr string) (string, e
 	}
 	addrBytes := base58.Decode(address)
 	buffBytes := append(addrBytes, []byte(abbr)...)
-	fmt.Println(buffBytes)
 	hashed := hash.Hash(buffBytes)
 	hash160, err := hash.Hash160(hashed.Bytes())
 	if err != nil {
@@ -130,12 +129,54 @@ func GenerateContractAddress(net string, address string, abbr string) (string, e
 	return hasharry.StringToAddress(code58).String(), nil
 }
 
-// Verify contract address
+func GenerateContractV2Address(net string, address string, nonce uint64) (string, error) {
+	ver := []byte{}
+	switch net {
+	case param.MainNet:
+		ver = append(ver, param.MainPubKeyHashTokenID[0:]...)
+	case param.TestNet:
+		ver = append(ver, param.TestPubKeyHashTokenID[0:]...)
+	default:
+		return "", errors.New("wrong network")
+	}
+	if !CheckUWDAddress(net, address) {
+		return "", errors.New("incorrect address")
+	}
+	addrBytes := base58.Decode(address)
+	nonceBytes := codec.Uint64toBytes(nonce)
+	buffBytes := append(addrBytes, nonceBytes...)
+	hashed := hash.Hash(buffBytes)
+	hash160, err := hash.Hash160(hashed.Bytes())
+	if err != nil {
+		return "", err
+	}
+
+	addNet := append(ver, hash160...)
+	hashed1 := hash.Hash(addNet)
+	hashed2 := hash.Hash(hashed1.Bytes())
+	checkSum := hashed2[0:4]
+	hashedCheck1 := append(addNet, checkSum...)
+	code58 := base58.Encode(hashedCheck1)
+	return hasharry.StringToAddress(code58).String(), nil
+}
+
+// CheckContractAddress Verify contract address
 func CheckContractAddress(net string, address string, abbr string, contractAddress string) bool {
 	if !IsValidContractAddress(net, contractAddress) {
 		return false
 	}
 	newAddress, err := GenerateContractAddress(net, address, abbr)
+	if err != nil {
+		return false
+	}
+	return newAddress == contractAddress
+}
+
+func CheckContractV2Address(net string, address string, nonce uint64, contractAddress string) bool {
+	if !IsValidContractAddress(net, contractAddress) {
+		return false
+	}
+	newAddress, err := GenerateContractV2Address(net, address, nonce)
 	if err != nil {
 		return false
 	}

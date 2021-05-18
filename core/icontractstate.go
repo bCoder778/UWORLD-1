@@ -12,6 +12,8 @@ type IContractState interface {
 
 	UpdateContract(tx types.ITransaction, blockHeight uint64)
 
+	UpdateContractV2(tx types.ITransaction, blockHeight uint64) error
+
 	UpdateConfirmedHeight(height uint64)
 
 	InitTrie(hash hasharry.Hash) error

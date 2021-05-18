@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/uworldao/UWORLD/common/encode/rlp"
 	hash2 "github.com/uworldao/UWORLD/common/hasharry"
+	"github.com/uworldao/UWORLD/core/types/contractv2"
+	"github.com/uworldao/UWORLD/core/types/functionbody"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
 	"github.com/uworldao/UWORLD/crypto/hash"
 	"github.com/uworldao/UWORLD/param"
@@ -15,6 +17,7 @@ import (
 const (
 	Transfer_ TransactionType = iota
 	Contract_
+	ContractV2_
 	LoginCandidate
 	/*LogoutCandidate
 	VoteToCandidate*/
@@ -125,6 +128,8 @@ func (t *Transaction) verifyTxFees() error {
 		fees = param.Fees
 	case Contract_:
 		fees = param.TokenConsumption
+	case ContractV2_:
+		fees = param.Fees
 	}
 	if t.TxHead.Fees != fees {
 		return fmt.Errorf("transaction costs %d fees", fees)
@@ -149,6 +154,8 @@ func (t *Transaction) verifyTxSize() error {
 	case Transfer_:
 		fallthrough
 	case Contract_:
+		return nil
+	case ContractV2_:
 		return nil
 		/*case LogoutCandidate:
 			fallthrough
@@ -191,6 +198,8 @@ func (t *Transaction) verifyTxType() error {
 	case Transfer_:
 		return nil
 	case Contract_:
+		return nil
+	case ContractV2_:
 		return nil
 		/*case VoteToCandidate:
 			return nil
@@ -309,7 +318,28 @@ func (t *Transaction) GetTxBody() ITransactionBody {
 func (t *Transaction) TranslateToRlpTransaction() *RlpTransaction {
 	rlpTx := &RlpTransaction{}
 	rlpTx.TxHead = t.TxHead
-	rlpTx.TxBody, _ = rlp.EncodeToBytes(t.TxBody)
+	switch t.GetTxType() {
+	case ContractV2_:
+		body, _ := t.TxBody.(*ContractV2Body)
+		rlpC := &RlpContract{
+			TxHead: t.TxHead,
+			TxBody: RlpContractBody{
+				Contract:     body.Contract,
+				Type:         body.Type,
+				FunctionType: body.FunctionType,
+				Function:     nil,
+			},
+		}
+		switch body.FunctionType {
+		case contractv2.Exchange_Init_:
+			function, _ := body.Function.(*functionbody.ExchangeInitBody)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		}
+		rlpTx.TxBody, _ = rlp.EncodeToBytes(rlpC.TxBody)
+	default:
+		rlpTx.TxBody, _ = rlp.EncodeToBytes(t.TxBody)
+	}
 	return rlpTx
 }
 

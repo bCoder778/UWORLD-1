@@ -174,18 +174,23 @@ func (a *Account) IsNeedUpdate() bool {
 
 // Change the account status of the party that transferred the transaction
 func (a *Account) FromChange(tx ITransaction, blockHeight uint64) error {
-	if tx.GetTxType() == Contract_ {
+	switch tx.GetTxType() {
+	case Contract_:
 		return a.fromContractChange(tx, blockHeight)
+	case ContractV2_:
+		return a.fromContractV2Change(tx, blockHeight)
+	default:
+		if a.Nonce+1 != tx.GetNonce() {
+			return ErrNonce
+		}
+		contract := tx.GetTxBody().GetContract()
+		if contract == param.Token {
+			return a.fromTokenChange(tx, blockHeight)
+		} else {
+			return a.fromCoinChange(tx, blockHeight)
+		}
 	}
-	if a.Nonce+1 != tx.GetNonce() {
-		return ErrNonce
-	}
-	contract := tx.GetTxBody().GetContract()
-	if contract == param.Token {
-		return a.fromTokenChange(tx, blockHeight)
-	} else {
-		return a.fromCoinChange(tx, blockHeight)
-	}
+	return nil
 }
 
 // Change the primary account status of one party to the transaction transfer
@@ -253,6 +258,25 @@ func (a *Account) fromCoinChange(tx ITransaction, blockHeight uint64) error {
 
 // Change of contract information
 func (a *Account) fromContractChange(tx ITransaction, blockHeight uint64) error {
+	fees := tx.GetFees()
+	tokenAccount, ok := a.Coins.Get(param.Token.String())
+	if !ok {
+		return errors.New("account is not exist")
+	}
+	if tokenAccount.Balance < fees {
+		return ErrNotEnoughFees
+	}
+	tokenAccount.Balance -= fees
+	tokenAccount.LockedIn += fees
+	a.Coins.Set(tokenAccount)
+	a.Nonce = tx.GetNonce()
+	a.Time = tx.GetTime()
+	a.JournalIn.Add(tx, blockHeight, param.Token, 0, fees)
+	return nil
+}
+
+// Change of contract information
+func (a *Account) fromContractV2Change(tx ITransaction, blockHeight uint64) error {
 	fees := tx.GetFees()
 	tokenAccount, ok := a.Coins.Get(param.Token.String())
 	if !ok {

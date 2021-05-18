@@ -4,6 +4,7 @@ import (
 	"github.com/uworldao/UWORLD/common/codec"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types"
+	"github.com/uworldao/UWORLD/core/types/contractv2"
 	"github.com/uworldao/UWORLD/database/triedb"
 	"github.com/uworldao/UWORLD/trie"
 )
@@ -59,4 +60,14 @@ func (c *ContractStorage) SetContractState(contract *types.Contract) {
 		return
 	}
 	c.contractTrie.Update([]byte(contract.Contract), bytes)
+}
+
+func (c *ContractStorage) GetContractV2State(contractAddr string) *contractv2.ContractV2 {
+	bytes := c.contractTrie.Get(hasharry.StringToAddress(contractAddr).Bytes())
+	contract, _ := contractv2.DecodeContractV2(bytes)
+	return contract
+}
+
+func (c *ContractStorage) SetContractV2State(contract *contractv2.ContractV2) {
+	c.contractTrie.Update(contract.Address.Bytes(), contract.Bytes())
 }

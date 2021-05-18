@@ -21,6 +21,7 @@ func init() {
 	contractCmds := []*cobra.Command{
 		GetContractCmd,
 		SendContractCmd,
+		CreateExchangeCmd,
 	}
 	RootCmd.AddCommand(contractCmds...)
 	RootSubCmdGroups["contract"] = contractCmds
@@ -173,4 +174,102 @@ func GetContractByRpc(contractAddr string) (*rpc.Response, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*20)
 	defer cancel()
 	return client.Gc.GetContract(ctx, &rpc.Address{Address: contractAddr})
+}
+
+var CreateExchangeCmd = &cobra.Command{
+	Use:     "CreateExchange {from} {feeToSetter} {feeTo} {password} {nonce}; Create a decentralized exchange;",
+	Aliases: []string{"CreateExchange", "createexchange", "ce", "CE"},
+	Short:   "CreateExchange {from} {feeToSetter} {feeTo} {password} {nonce}; Create a decentralized exchange;",
+	Example: `
+	CreateExchange 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 123456
+		OR
+	CreateExchange 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 123456 1
+	`,
+	Args: cobra.MinimumNArgs(3),
+	Run:  CreateExchange,
+}
+
+func CreateExchange(cmd *cobra.Command, args []string) {
+	var passwd []byte
+	var err error
+	if len(args) > 3 {
+		passwd = []byte(args[3])
+	} else {
+		fmt.Println("please input password：")
+		passwd, err = readPassWd()
+		if err != nil {
+			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			return
+		}
+	}
+	privKey, err := ReadAddrPrivate(getAddJsonPath(args[0]), passwd)
+	if err != nil {
+		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		return
+	}
+	resp, err := GetAccountByRpc(args[0])
+	if err != nil {
+		log.Error(cmd.Use+" err: ", err)
+		return
+	}
+	if resp.Code != 0 {
+		log.Errorf(cmd.Use+" err: code %d, message: %s", resp.Code, resp.Err)
+		return
+	}
+	var account *rpctypes.Account
+	if err := json.Unmarshal(resp.Result, &account); err != nil {
+		log.Error(cmd.Use+" err: ", err)
+		return
+	}
+
+	tx, err := parseCEParams(args, account.Nonce+1)
+	if err != nil {
+		log.Error(cmd.Use+" err: ", err)
+		return
+	}
+
+	if !signTx(cmd, tx, privKey.Private) {
+		log.Error(cmd.Use+" err: ", errors.New("signature failure"))
+		return
+	}
+
+	rs, err := sendTx(cmd, tx)
+	if err != nil {
+		log.Error(cmd.Use+" err: ", err)
+	} else if rs.Code != 0 {
+		log.Errorf(cmd.Use+" err: code %d, message: %s", rs.Code, rs.Err)
+	} else {
+		fmt.Println()
+		fmt.Println(string(rs.Result))
+	}
+}
+
+func parseCEParams(args []string, nonce uint64) (*types.Transaction, error) {
+	var err error
+	from := hasharry.StringToAddress(args[0])
+	feeToSetter := args[1]
+	feeTo := args[2]
+	if len(args) > 4 {
+		nonce, err = strconv.ParseUint(args[4], 10, 64)
+		if err != nil {
+			return nil, errors.New("wrong nonce")
+		}
+	}
+	contract, err := ut.GenerateContractV2Address(Net, from.String(), nonce)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("\ncontract address is ", contract)
+
+	if len(args) > 9 {
+		nonce, err = strconv.ParseUint(args[9], 10, 64)
+		if err != nil {
+			return nil, errors.New("wrong nonce")
+		}
+	}
+	tx, err := transaction.NewExchange(Net, from.String(), feeToSetter, feeTo, nonce, "")
+	if err != nil {
+		return nil, err
+	}
+	return tx, nil
 }

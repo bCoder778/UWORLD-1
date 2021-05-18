@@ -335,6 +335,14 @@ func (t *Transaction) TranslateToRlpTransaction() *RlpTransaction {
 			function, _ := body.Function.(*functionbody.ExchangeInitBody)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
+		case contractv2.Exchange_SetFeeToSetter_:
+			function, _ := body.Function.(*functionbody.ExchangeFeeToSetter)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Exchange_SetFeeTo_:
+			function, _ := body.Function.(*functionbody.ExchangeFeeTo)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
 		}
 		rlpTx.TxBody, _ = rlp.EncodeToBytes(rlpC.TxBody)
 	default:

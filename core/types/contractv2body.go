@@ -65,7 +65,12 @@ func (c *ContractV2Body) checkType() error {
 		switch c.FunctionType {
 		case contractv2.Exchange_Init_:
 			return nil
+		case contractv2.Exchange_SetFeeToSetter_:
+			return nil
+		case contractv2.Exchange_SetFeeTo_:
+			return nil
 		}
+
 		return errors.New("invalid contract function type")
 	}
 	return errors.New("invalid contract type")

@@ -49,6 +49,14 @@ func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
 			var init *functionbody.ExchangeInitBody
 			rlp.DecodeBytes(rlpCt.Function, &init)
 			ct.Function = init
+		case contractv2.Exchange_SetFeeToSetter_:
+			var set *functionbody.ExchangeFeeToSetter
+			rlp.DecodeBytes(rlpCt.Function, &set)
+			ct.Function = set
+		case contractv2.Exchange_SetFeeTo_:
+			var set *functionbody.ExchangeFeeTo
+			rlp.DecodeBytes(rlpCt.Function, &set)
+			ct.Function = set
 		}
 		rlp.DecodeBytes(rt.TxBody, &ct)
 		return &Transaction{

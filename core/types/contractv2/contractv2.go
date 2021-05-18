@@ -15,7 +15,9 @@ const (
 )
 
 const (
-	Exchange_Init_ FunctionType = 0
+	Exchange_Init_           FunctionType = 0
+	Exchange_SetFeeToSetter_              = 1
+	Exchange_SetFeeTo_                    = 2
 )
 
 type ContractV2 struct {
@@ -36,10 +38,18 @@ func (c *ContractV2) Bytes() []byte {
 	return bytes
 }
 
-func (c *ContractV2) Verify(function FunctionType) error {
-	switch function {
-	case Exchange_Init_:
-		return fmt.Errorf("exchange %s already exist", c.Address.String())
+func (c *ContractV2) Verify(contractType ContractType, function FunctionType, sender hasharry.Address) error {
+	switch contractType {
+	case Exchange_:
+		ex, _ := c.Body.(*Exchange)
+		switch function {
+		case Exchange_Init_:
+			return fmt.Errorf("exchange %s already exist", c.Address.String())
+		case Exchange_SetFeeToSetter_:
+			return ex.VerifySetter(sender)
+		case Exchange_SetFeeTo_:
+			return ex.VerifySetter(sender)
+		}
 	}
 	return nil
 }
@@ -57,7 +67,7 @@ type IContractV2Body interface {
 
 func DecodeContractV2(bytes []byte) (*ContractV2, error) {
 	var rlpContract *RlpContractV2
-	if err := rlp.DecodeBytes(bytes, rlpContract); err != nil {
+	if err := rlp.DecodeBytes(bytes, &rlpContract); err != nil {
 		return nil, err
 	}
 	var contract = &ContractV2{

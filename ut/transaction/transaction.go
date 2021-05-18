@@ -87,3 +87,53 @@ func NewExchange(net, from, feeToSetter, feeTo string, nonce uint64, note string
 	tx.SetHash()
 	return tx, nil
 }
+
+func NewSetFeeToSetter(from, exchange, feeToSetter string, nonce uint64, note string) (*types.Transaction, error) {
+	tx := &types.Transaction{
+		TxHead: &types.TransactionHead{
+			TxType:     types.ContractV2_,
+			TxHash:     hasharry.Hash{},
+			From:       hasharry.StringToAddress(from),
+			Nonce:      nonce,
+			Time:       uint64(time.Now().Unix()),
+			Note:       note,
+			SignScript: &types.SignScript{},
+			Fees:       param.Fees,
+		},
+		TxBody: &types.ContractV2Body{
+			Contract:     hasharry.StringToAddress(exchange),
+			Type:         contractv2.Exchange_,
+			FunctionType: contractv2.Exchange_SetFeeToSetter_,
+			Function: &functionbody.ExchangeFeeToSetter{
+				Address: hasharry.StringToAddress(feeToSetter),
+			},
+		},
+	}
+	tx.SetHash()
+	return tx, nil
+}
+
+func NewSetFeeTo(from, exchange, feeTo string, nonce uint64, note string) (*types.Transaction, error) {
+	tx := &types.Transaction{
+		TxHead: &types.TransactionHead{
+			TxType:     types.ContractV2_,
+			TxHash:     hasharry.Hash{},
+			From:       hasharry.StringToAddress(from),
+			Nonce:      nonce,
+			Time:       uint64(time.Now().Unix()),
+			Note:       note,
+			SignScript: &types.SignScript{},
+			Fees:       param.Fees,
+		},
+		TxBody: &types.ContractV2Body{
+			Contract:     hasharry.StringToAddress(exchange),
+			Type:         contractv2.Exchange_,
+			FunctionType: contractv2.Exchange_SetFeeTo_,
+			Function: &functionbody.ExchangeFeeTo{
+				Address: hasharry.StringToAddress(feeTo),
+			},
+		},
+	}
+	tx.SetHash()
+	return tx, nil
+}

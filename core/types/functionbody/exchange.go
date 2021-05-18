@@ -24,3 +24,25 @@ func (e *ExchangeInitBody) Verify() error {
 	}
 	return nil
 }
+
+type ExchangeFeeToSetter struct {
+	Address hasharry.Address
+}
+
+func (e *ExchangeFeeToSetter) Verify() error {
+	if ok := ut.CheckUWDAddress(param.Net, e.Address.String()); !ok {
+		return errors.New("wrong feeToSetter address")
+	}
+	return nil
+}
+
+type ExchangeFeeTo struct {
+	Address hasharry.Address
+}
+
+func (e *ExchangeFeeTo) Verify() error {
+	if ok := ut.CheckUWDAddress(param.Net, e.Address.String()); !ok {
+		return errors.New("wrong feeTo address")
+	}
+	return nil
+}

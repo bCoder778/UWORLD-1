@@ -176,6 +176,22 @@ func translateContractV2ToRpcContractV2(body *ContractV2Body) (*RpcContractV2Tra
 			FeeToSetter: funcBody.FeeToSetter.String(),
 			FeeTo:       funcBody.FeeTo.String(),
 		}
+	case contractv2.Exchange_SetFeeToSetter_:
+		funcBody, ok := body.Function.(*functionbody.ExchangeFeeToSetter)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		contractv2Body.Function = &RpcExchangeSetFeeToSetterBody{
+			Address: funcBody.Address.String(),
+		}
+	case contractv2.Exchange_SetFeeTo_:
+		funcBody, ok := body.Function.(*functionbody.ExchangeFeeTo)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		contractv2Body.Function = &RpcExchangeSetFeeToBody{
+			Address: funcBody.Address.String(),
+		}
 	}
 	return contractv2Body, nil
 }
@@ -263,6 +279,46 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Function: &functionbody.ExchangeInitBody{
 				FeeToSetter: hasharry.StringToAddress(init.FeeToSetter),
 				FeeTo:       hasharry.StringToAddress(init.FeeTo),
+			},
+		}, nil
+	case contractv2.Exchange_SetFeeToSetter_:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		setBody := &RpcExchangeSetFeeToSetterBody{
+			Address: "",
+		}
+		err = json.Unmarshal(bytes, setBody)
+		if err != nil {
+			return nil, err
+		}
+		return &ContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &functionbody.ExchangeFeeToSetter{
+				Address: hasharry.StringToAddress(setBody.Address),
+			},
+		}, nil
+	case contractv2.Exchange_SetFeeTo_:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		setBody := &RpcExchangeSetFeeToBody{
+			Address: "",
+		}
+		err = json.Unmarshal(bytes, setBody)
+		if err != nil {
+			return nil, err
+		}
+		return &ContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &functionbody.ExchangeFeeTo{
+				Address: hasharry.StringToAddress(setBody.Address),
 			},
 		}, nil
 	}

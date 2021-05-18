@@ -36,19 +36,25 @@ func NewExchange(feeToSetter, feeTo hasharry.Address) *Exchange {
 }
 
 func (e *Exchange) SetFeeTo(address hasharry.Address, sender hasharry.Address) error {
-	if !e.FeeToSetter.IsEqual(sender) {
-
-		return errors.New("forbidden")
+	if err := e.VerifySetter(sender); err != nil {
+		return err
 	}
 	e.FeeTo = address
 	return nil
 }
 
 func (e *Exchange) SetFeeToSetter(address hasharry.Address, sender hasharry.Address) error {
+	if err := e.VerifySetter(sender); err != nil {
+		return err
+	}
+	e.FeeToSetter = address
+	return nil
+}
+
+func (e *Exchange) VerifySetter(sender hasharry.Address) error {
 	if !e.FeeToSetter.IsEqual(sender) {
 		return errors.New("forbidden")
 	}
-	e.FeeToSetter = address
 	return nil
 }
 

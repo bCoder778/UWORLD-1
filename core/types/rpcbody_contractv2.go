@@ -18,3 +18,11 @@ type RpcExchangeInitBody struct {
 	FeeToSetter string `json:"feetosetter"`
 	FeeTo       string `json:"feeto"`
 }
+
+type RpcExchangeSetFeeToSetterBody struct {
+	Address string `json:"address"`
+}
+
+type RpcExchangeSetFeeToBody struct {
+	Address string `json:"address"`
+}

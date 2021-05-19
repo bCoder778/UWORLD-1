@@ -97,3 +97,89 @@ func SafeMul(x, y uint64) (uint64, bool) {
 	}
 	return x * y, y > MaxUint64/x
 }
+
+func Min(x, y uint64) uint64 {
+	if x <= y {
+		return x
+	} else {
+		return y
+	}
+}
+
+func Max(x, y uint64) uint64 {
+	if x > y {
+		return x
+	} else {
+		return y
+	}
+}
+
+func Sqrt(y uint64) (z uint64) {
+	if y > 3 {
+		z = y
+		x := y/2 + 1
+		for x < z {
+			z = x
+			x = (y/x + x) / 2
+		}
+	} else if y != 0 {
+		z = 1
+	}
+	return
+}
+
+type Math struct {
+	Value  uint64
+	Failed bool
+}
+
+func NewMath(value uint64) *Math {
+	return &Math{
+		Value: value,
+	}
+}
+
+func (m *Math) Add(y uint64) *Math {
+	if m.Failed {
+		return m
+	}
+	z, ok := SafeAdd(m.Value, y)
+
+	return &Math{
+		Value:  z,
+		Failed: ok,
+	}
+}
+
+func (m *Math) Mul(y uint64) *Math {
+	if m.Failed {
+		return m
+	}
+	z, ok := SafeMul(m.Value, y)
+	return &Math{
+		Value:  z,
+		Failed: ok,
+	}
+}
+
+func (m *Math) Sub(y uint64) *Math {
+	if m.Failed {
+		return m
+	}
+	z, ok := SafeSub(m.Value, y)
+	return &Math{
+		Value:  z,
+		Failed: ok,
+	}
+}
+
+func (m *Math) Sqrt() *Math {
+	if m.Failed {
+		return m
+	}
+	z := Sqrt(m.Value)
+	return &Math{
+		Value:  z,
+		Failed: true,
+	}
+}

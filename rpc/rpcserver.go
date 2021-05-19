@@ -8,7 +8,7 @@ import (
 	"github.com/uworldao/UWORLD/common/utils"
 	"github.com/uworldao/UWORLD/config"
 	"github.com/uworldao/UWORLD/consensus"
-	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
 	coreTypes "github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/crypto/certgen"
 	log "github.com/uworldao/UWORLD/log/log15"
@@ -29,18 +29,18 @@ import (
 
 type Server struct {
 	config        *config.RpcConfig
-	txPool        core.ITxPool
-	accountState  core.IAccountState
-	contractState core.IContractState
+	txPool        _interface.ITxPool
+	accountState  _interface.IAccountState
+	contractState _interface.IContractState
 	consensus     consensus.IConsensus
-	chain         core.IBlockChain
+	chain         _interface.IBlockChain
 	grpcServer    *grpc.Server
 	peerManager   p2p.IPeerManager
 	peers         reqmgr.Peers
 }
 
-func NewServer(config *config.RpcConfig, txPool core.ITxPool, state core.IAccountState, contractState core.IContractState,
-	consensus consensus.IConsensus, chain core.IBlockChain, peerManager p2p.IPeerManager, peers reqmgr.Peers) *Server {
+func NewServer(config *config.RpcConfig, txPool _interface.ITxPool, state _interface.IAccountState, contractState _interface.IContractState,
+	consensus consensus.IConsensus, chain _interface.IBlockChain, peerManager p2p.IPeerManager, peers reqmgr.Peers) *Server {
 	return &Server{config: config, txPool: txPool, accountState: state, contractState: contractState,
 		consensus: consensus, chain: chain, peerManager: peerManager, peers: peers}
 }

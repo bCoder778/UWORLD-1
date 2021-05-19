@@ -19,7 +19,6 @@ package math
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/uworldao/UWORLD/common/util"
 	"math/big"
 	"testing"
 )

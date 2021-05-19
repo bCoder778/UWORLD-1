@@ -5,7 +5,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/uworldao/UWORLD/config"
 	"github.com/uworldao/UWORLD/consensus"
-	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/database/pooldb"
 	log "github.com/uworldao/UWORLD/log/log15"
@@ -27,8 +27,8 @@ const txPoolStorage = "txpool"
 
 // Manage transactions not packaged into blocks
 type TxPool struct {
-	accountState  core.IAccountState
-	contractState core.IContractState
+	accountState  _interface.IAccountState
+	contractState _interface.IContractState
 	consensus     consensus.IConsensus
 	txs           *list.TxList
 	peerManager   p2p.IPeerManager
@@ -41,7 +41,7 @@ type TxPool struct {
 	stop          chan bool
 }
 
-func NewTxPool(config *config.Config, accountState core.IAccountState, contractState core.IContractState, consensus consensus.IConsensus, peerManager p2p.IPeerManager, network blkmgr.Network,
+func NewTxPool(config *config.Config, accountState _interface.IAccountState, contractState _interface.IContractState, consensus consensus.IConsensus, peerManager p2p.IPeerManager, network blkmgr.Network,
 	recTx chan types.ITransaction, stateUpdateCh chan struct{}, removeTxsCh chan types.Transactions,
 	newStream blkmgr.ICreateStream) *TxPool {
 

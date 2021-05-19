@@ -31,46 +31,46 @@ func NewAccountState(dataDir string) (*AccountState, error) {
 }
 
 // Initialize account balance root hash
-func (cs *AccountState) InitTrie(stateRoot hasharry.Hash) error {
-	return cs.stateDb.InitTrie(stateRoot)
+func (as *AccountState) InitTrie(stateRoot hasharry.Hash) error {
+	return as.stateDb.InitTrie(stateRoot)
 }
 
 // Get account status, if the account status needs to be updated
 // according to the effective block height, it will be updated,
 // but not stored.
-func (cs *AccountState) GetAccountState(stateKey hasharry.Address) types.IAccount {
-	cs.accountMutex.RLock()
-	account := cs.stateDb.GetAccountState(stateKey)
-	cs.accountMutex.RUnlock()
+func (as *AccountState) GetAccountState(stateKey hasharry.Address) types.IAccount {
+	as.accountMutex.RLock()
+	account := as.stateDb.GetAccountState(stateKey)
+	as.accountMutex.RUnlock()
 
 	if account.IsNeedUpdate() {
-		account = cs.updateAccountLocked(stateKey)
+		account = as.updateAccountLocked(stateKey)
 	}
 	return account
 }
 
-func (cs *AccountState) GetAccountNonce(stateKey hasharry.Address) (uint64, error) {
-	cs.accountMutex.RLock()
-	defer cs.accountMutex.RUnlock()
+func (as *AccountState) GetAccountNonce(stateKey hasharry.Address) (uint64, error) {
+	as.accountMutex.RLock()
+	defer as.accountMutex.RUnlock()
 
-	return cs.stateDb.GetAccountNonce(stateKey), nil
+	return as.stateDb.GetAccountNonce(stateKey), nil
 }
 
-func (cs *AccountState) setAccountState(account types.IAccount) {
-	cs.stateDb.SetAccountState(account)
+func (as *AccountState) setAccountState(account types.IAccount) {
+	as.stateDb.SetAccountState(account)
 }
 
 // Update sender account status based on transaction information
-func (cs *AccountState) UpdateFrom(tx types.ITransaction, blockHeight uint64) error {
+func (as *AccountState) UpdateFrom(tx types.ITransaction, blockHeight uint64) error {
 	if tx.IsCoinBase() {
 		return nil
 	}
 
-	cs.accountMutex.Lock()
-	defer cs.accountMutex.Unlock()
+	as.accountMutex.Lock()
+	defer as.accountMutex.Unlock()
 
-	fromAccount := cs.stateDb.GetAccountState(tx.From())
-	err := fromAccount.Update(cs.confirmedHeight)
+	fromAccount := as.stateDb.GetAccountState(tx.From())
+	err := fromAccount.Update(as.confirmedHeight)
 	if err != nil {
 		return err
 	}
@@ -80,19 +80,19 @@ func (cs *AccountState) UpdateFrom(tx types.ITransaction, blockHeight uint64) er
 		return err
 	}
 
-	cs.setAccountState(fromAccount)
+	as.setAccountState(fromAccount)
 	return nil
 }
 
 // Update the receiver's account status based on transaction information
-func (cs *AccountState) UpdateTo(tx types.ITransaction, blockHeight uint64) error {
-	cs.accountMutex.Lock()
-	defer cs.accountMutex.Unlock()
+func (as *AccountState) UpdateTo(tx types.ITransaction, blockHeight uint64) error {
+	as.accountMutex.Lock()
+	defer as.accountMutex.Unlock()
 
 	var toAccount types.IAccount
 
-	toAccount = cs.stateDb.GetAccountState(tx.GetTxBody().ToAddress())
-	err := toAccount.Update(cs.confirmedHeight)
+	toAccount = as.stateDb.GetAccountState(tx.GetTxBody().ToAddress())
+	err := toAccount.Update(as.confirmedHeight)
 	if err != nil {
 		return err
 	}
@@ -101,88 +101,105 @@ func (cs *AccountState) UpdateTo(tx types.ITransaction, blockHeight uint64) erro
 		return err
 	}
 
-	cs.setAccountState(toAccount)
+	as.setAccountState(toAccount)
 
 	return nil
 }
 
-func (cs *AccountState) UpdateFees(fees, blockHeight uint64) error {
-	cs.accountMutex.Lock()
-	defer cs.accountMutex.Unlock()
+func (as *AccountState) UpdateFees(fees, blockHeight uint64) error {
+	as.accountMutex.Lock()
+	defer as.accountMutex.Unlock()
 
 	var account types.IAccount
 
-	account = cs.stateDb.GetAccountState(param.FeeAddress)
-	err := account.Update(cs.confirmedHeight)
+	account = as.stateDb.GetAccountState(param.FeeAddress)
+	err := account.Update(as.confirmedHeight)
 	if err != nil {
 		return err
 	}
 	account.FeesChange(fees, blockHeight)
-	cs.setAccountState(account)
+	as.setAccountState(account)
 	return nil
 }
 
-func (cs *AccountState) UpdateConsumption(fees, blockHeight uint64) error {
+func (as *AccountState) UpdateConsumption(fees, blockHeight uint64) error {
 	if fees == 0 {
 		return nil
 	}
 
-	cs.accountMutex.Lock()
-	defer cs.accountMutex.Unlock()
+	as.accountMutex.Lock()
+	defer as.accountMutex.Unlock()
 
 	var account types.IAccount
 
-	account = cs.stateDb.GetAccountState(param.EaterAddress)
-	err := account.Update(cs.confirmedHeight)
+	account = as.stateDb.GetAccountState(param.EaterAddress)
+	err := account.Update(as.confirmedHeight)
 	if err != nil {
 		return err
 	}
 	account.ConsumptionChange(fees, blockHeight)
-	cs.setAccountState(account)
+	as.setAccountState(account)
 	return nil
 }
 
 // Update the locked balance of an account
-func (cs *AccountState) updateAccountLocked(stateKey hasharry.Address) types.IAccount {
-	account := cs.stateDb.GetAccountState(stateKey)
-	account.Update(cs.confirmedHeight)
+func (as *AccountState) updateAccountLocked(stateKey hasharry.Address) types.IAccount {
+	account := as.stateDb.GetAccountState(stateKey)
+	account.Update(as.confirmedHeight)
 	return account
 }
 
-func (cs *AccountState) UpdateConfirmedHeight(height uint64) {
-	cs.confirmedHeight = height
+func (as *AccountState) UpdateConfirmedHeight(height uint64) {
+	as.confirmedHeight = height
 }
 
 // Verify the status of the trading account
-func (cs *AccountState) VerifyState(tx types.ITransaction) error {
+func (as *AccountState) VerifyState(tx types.ITransaction) error {
 	switch tx.GetTxType() {
 	default:
-		return cs.verifyTxState(tx)
+		return as.verifyTxState(tx)
 	}
 }
 
-func (cs *AccountState) verifyTxState(tx types.ITransaction) error {
+func (as *AccountState) verifyTxState(tx types.ITransaction) error {
 	if tx.GetTime() > uint64(time.Now().Unix()) {
 		return errors.New("incorrect transaction time")
 	}
 
-	account := cs.GetAccountState(tx.From())
+	account := as.GetAccountState(tx.From())
 	return account.VerifyTxState(tx)
 }
 
-func (cs *AccountState) StateTrieCommit() (hasharry.Hash, error) {
-	return cs.stateDb.Commit()
+func (as *AccountState) Transfer(from, to, token hasharry.Address, amount uint64, height uint64) error {
+	as.accountMutex.Lock()
+	defer as.accountMutex.Unlock()
+
+	fromAcc := as.GetAccountState(from)
+	if err := fromAcc.TransferOut(token, amount, height); err != nil {
+		return err
+	}
+	toAcc := as.GetAccountState(to)
+	if err := toAcc.TransferIn(token, amount, height); err != nil {
+		return err
+	}
+	as.setAccountState(fromAcc)
+	as.setAccountState(toAcc)
+	return nil
 }
 
-func (cs *AccountState) RootHash() hasharry.Hash {
-	//cs.Print()
-	return cs.stateDb.RootHash()
+func (as *AccountState) StateTrieCommit() (hasharry.Hash, error) {
+	return as.stateDb.Commit()
 }
 
-func (cs *AccountState) Print() {
-	cs.stateDb.Print()
+func (as *AccountState) RootHash() hasharry.Hash {
+	//as.Print()
+	return as.stateDb.RootHash()
 }
 
-func (cs *AccountState) Close() error {
-	return cs.stateDb.Close()
+func (as *AccountState) Print() {
+	as.stateDb.Print()
+}
+
+func (as *AccountState) Close() error {
+	return as.stateDb.Close()
 }

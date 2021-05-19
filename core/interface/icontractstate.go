@@ -1,18 +1,23 @@
-package core
+package _interface
 
 import (
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types"
+	"github.com/uworldao/UWORLD/core/types/contractv2"
 )
 
 type IContractState interface {
 	GetContract(contractAddr string) *types.Contract
 
+	SetContract(contract *types.Contract)
+
+	GetContractV2(contractAddr string) *contractv2.ContractV2
+
+	SetContractV2(contract *contractv2.ContractV2)
+
 	VerifyState(tx types.ITransaction) error
 
 	UpdateContract(tx types.ITransaction, blockHeight uint64)
-
-	UpdateContractV2(tx types.ITransaction, blockHeight uint64) error
 
 	UpdateConfirmedHeight(height uint64)
 

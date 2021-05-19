@@ -2,11 +2,11 @@ package transaction
 
 import (
 	"github.com/uworldao/UWORLD/common/hasharry"
+	"github.com/uworldao/UWORLD/core/runner/exchange_runner"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	"github.com/uworldao/UWORLD/core/types/functionbody"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 	"github.com/uworldao/UWORLD/param"
-	"github.com/uworldao/UWORLD/ut"
 	"time"
 )
 
@@ -58,11 +58,12 @@ func NewContract(from, to, contract string, note string, amount, nonce uint64, n
 	return tx
 }
 
-func NewExchange(net, from, feeToSetter, feeTo string, nonce uint64, note string) (*types.Transaction, error) {
-	contract, err := ut.GenerateContractV2Address(net, from, nonce)
+func NewExchange(net, from, admin, feeTo string, nonce uint64, note string) (*types.Transaction, error) {
+	contract, err := exchange_runner.ExchangeAddress(net, from, nonce)
 	if err != nil {
 		return nil, err
 	}
+
 	tx := &types.Transaction{
 		TxHead: &types.TransactionHead{
 			TxType:     types.ContractV2_,
@@ -78,17 +79,19 @@ func NewExchange(net, from, feeToSetter, feeTo string, nonce uint64, note string
 			Contract:     hasharry.StringToAddress(contract),
 			Type:         contractv2.Exchange_,
 			FunctionType: contractv2.Exchange_Init_,
-			Function: &functionbody.ExchangeInitBody{
-				FeeToSetter: hasharry.StringToAddress(feeToSetter),
-				FeeTo:       hasharry.StringToAddress(feeTo),
+			Function: &exchange_func.ExchangeInitBody{
+				Admin: hasharry.StringToAddress(admin),
+				FeeTo: hasharry.StringToAddress(feeTo),
 			},
+			State:   types.Contract_Wait,
+			Message: "",
 		},
 	}
 	tx.SetHash()
 	return tx, nil
 }
 
-func NewSetFeeToSetter(from, exchange, feeToSetter string, nonce uint64, note string) (*types.Transaction, error) {
+func NewSetAdmin(from, exchange, admin string, nonce uint64, note string) (*types.Transaction, error) {
 	tx := &types.Transaction{
 		TxHead: &types.TransactionHead{
 			TxType:     types.ContractV2_,
@@ -103,10 +106,12 @@ func NewSetFeeToSetter(from, exchange, feeToSetter string, nonce uint64, note st
 		TxBody: &types.ContractV2Body{
 			Contract:     hasharry.StringToAddress(exchange),
 			Type:         contractv2.Exchange_,
-			FunctionType: contractv2.Exchange_SetFeeToSetter_,
-			Function: &functionbody.ExchangeFeeToSetter{
-				Address: hasharry.StringToAddress(feeToSetter),
+			FunctionType: contractv2.Exchange_SetAdmin_,
+			Function: &exchange_func.ExchangeAdmin{
+				Address: hasharry.StringToAddress(admin),
 			},
+			State:   types.Contract_Wait,
+			Message: "",
 		},
 	}
 	tx.SetHash()
@@ -129,9 +134,49 @@ func NewSetFeeTo(from, exchange, feeTo string, nonce uint64, note string) (*type
 			Contract:     hasharry.StringToAddress(exchange),
 			Type:         contractv2.Exchange_,
 			FunctionType: contractv2.Exchange_SetFeeTo_,
-			Function: &functionbody.ExchangeFeeTo{
+			Function: &exchange_func.ExchangeFeeTo{
 				Address: hasharry.StringToAddress(feeTo),
 			},
+			State:   types.Contract_Wait,
+			Message: "",
+		},
+	}
+	tx.SetHash()
+	return tx, nil
+}
+
+func NewPairCreate(net, from, to, exchange, tokenA, tokenB string, amountADesired, amountBDesired, amountAMin, amountBMin, nonce uint64, note string) (*types.Transaction, error) {
+	contract, err := exchange_runner.PairAddress(net, tokenA, tokenB)
+	if err != nil {
+		return nil, err
+	}
+	tx := &types.Transaction{
+		TxHead: &types.TransactionHead{
+			TxType:     types.ContractV2_,
+			TxHash:     hasharry.Hash{},
+			From:       hasharry.StringToAddress(from),
+			Nonce:      nonce,
+			Time:       uint64(time.Now().Unix()),
+			Note:       note,
+			SignScript: &types.SignScript{},
+			Fees:       param.Fees,
+		},
+		TxBody: &types.ContractV2Body{
+			Contract:     hasharry.StringToAddress(contract),
+			Type:         contractv2.Pair_,
+			FunctionType: contractv2.Pair_Create,
+			Function: &exchange_func.ExchangePairCreate{
+				Exchange:       hasharry.StringToAddress(exchange),
+				TokenA:         hasharry.StringToAddress(tokenA),
+				TokenB:         hasharry.StringToAddress(tokenB),
+				To:             hasharry.StringToAddress(to),
+				AmountADesired: amountADesired,
+				AmountBDesired: amountBDesired,
+				AmountAMin:     amountAMin,
+				AmountBMin:     amountBMin,
+			},
+			State:   types.Contract_Wait,
+			Message: "",
 		},
 	}
 	tx.SetHash()

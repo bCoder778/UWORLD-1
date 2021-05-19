@@ -6,7 +6,7 @@ import (
 	"errors"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	"github.com/uworldao/UWORLD/core/types/functionbody"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 )
 
 type IRpcTransactionBody interface {
@@ -161,39 +161,56 @@ func TranslateTxToRpcTx(tx *Transaction) (*RpcTransaction, error) {
 }
 
 func translateContractV2ToRpcContractV2(body *ContractV2Body) (*RpcContractV2TransactionBody, error) {
-	contractv2Body := &RpcContractV2TransactionBody{
+	contractV2Body := &RpcContractV2TransactionBody{
 		Contract:     body.Contract.String(),
 		Type:         body.Type,
 		FunctionType: body.FunctionType,
+		State:        body.State,
+		Message:      body.Message,
 	}
 	switch body.FunctionType {
 	case contractv2.Exchange_Init_:
-		funcBody, ok := body.Function.(*functionbody.ExchangeInitBody)
+		funcBody, ok := body.Function.(*exchange_func.ExchangeInitBody)
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		contractv2Body.Function = &RpcExchangeInitBody{
-			FeeToSetter: funcBody.FeeToSetter.String(),
-			FeeTo:       funcBody.FeeTo.String(),
+		contractV2Body.Function = &RpcExchangeInitBody{
+			Admin: funcBody.Admin.String(),
+			FeeTo: funcBody.FeeTo.String(),
 		}
-	case contractv2.Exchange_SetFeeToSetter_:
-		funcBody, ok := body.Function.(*functionbody.ExchangeFeeToSetter)
+	case contractv2.Exchange_SetAdmin_:
+		funcBody, ok := body.Function.(*exchange_func.ExchangeAdmin)
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		contractv2Body.Function = &RpcExchangeSetFeeToSetterBody{
+		contractV2Body.Function = &RpcExchangeSetAdminBody{
 			Address: funcBody.Address.String(),
 		}
 	case contractv2.Exchange_SetFeeTo_:
-		funcBody, ok := body.Function.(*functionbody.ExchangeFeeTo)
+		funcBody, ok := body.Function.(*exchange_func.ExchangeFeeTo)
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		contractv2Body.Function = &RpcExchangeSetFeeToBody{
+		contractV2Body.Function = &RpcExchangeSetFeeToBody{
 			Address: funcBody.Address.String(),
 		}
+	case contractv2.Pair_Create:
+		funcBody, ok := body.Function.(*exchange_func.ExchangePairCreate)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		contractV2Body.Function = &RpcExchangePairCreate{
+			Exchange:       funcBody.Exchange.String(),
+			TokenA:         funcBody.TokenA.String(),
+			TokenB:         funcBody.TokenB.String(),
+			To:             funcBody.To.String(),
+			AmountADesired: Amount(funcBody.AmountADesired).ToCoin(),
+			AmountBDesired: Amount(funcBody.AmountBDesired).ToCoin(),
+			AmountAMin:     Amount(funcBody.AmountAMin).ToCoin(),
+			AmountBMin:     Amount(funcBody.AmountBMin).ToCoin(),
+		}
 	}
-	return contractv2Body, nil
+	return contractV2Body, nil
 }
 
 func TranslateRpcSignScriptToSignScript(rpcSignScript *RpcSignScript) (*SignScript, error) {
@@ -265,8 +282,8 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			return nil, err
 		}
 		init := &RpcExchangeInitBody{
-			FeeToSetter: "",
-			FeeTo:       "",
+			Admin: "",
+			FeeTo: "",
 		}
 		err = json.Unmarshal(bytes, init)
 		if err != nil {
@@ -276,17 +293,19 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Contract:     hasharry.StringToAddress(body.Contract),
 			Type:         body.Type,
 			FunctionType: body.FunctionType,
-			Function: &functionbody.ExchangeInitBody{
-				FeeToSetter: hasharry.StringToAddress(init.FeeToSetter),
-				FeeTo:       hasharry.StringToAddress(init.FeeTo),
+			Function: &exchange_func.ExchangeInitBody{
+				Admin: hasharry.StringToAddress(init.Admin),
+				FeeTo: hasharry.StringToAddress(init.FeeTo),
 			},
+			State:   body.State,
+			Message: body.Message,
 		}, nil
-	case contractv2.Exchange_SetFeeToSetter_:
+	case contractv2.Exchange_SetAdmin_:
 		bytes, err := json.Marshal(body.Function)
 		if err != nil {
 			return nil, err
 		}
-		setBody := &RpcExchangeSetFeeToSetterBody{
+		setBody := &RpcExchangeSetAdminBody{
 			Address: "",
 		}
 		err = json.Unmarshal(bytes, setBody)
@@ -297,9 +316,11 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Contract:     hasharry.StringToAddress(body.Contract),
 			Type:         body.Type,
 			FunctionType: body.FunctionType,
-			Function: &functionbody.ExchangeFeeToSetter{
+			Function: &exchange_func.ExchangeAdmin{
 				Address: hasharry.StringToAddress(setBody.Address),
 			},
+			State:   body.State,
+			Message: body.Message,
 		}, nil
 	case contractv2.Exchange_SetFeeTo_:
 		bytes, err := json.Marshal(body.Function)
@@ -317,9 +338,42 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Contract:     hasharry.StringToAddress(body.Contract),
 			Type:         body.Type,
 			FunctionType: body.FunctionType,
-			Function: &functionbody.ExchangeFeeTo{
+			Function: &exchange_func.ExchangeFeeTo{
 				Address: hasharry.StringToAddress(setBody.Address),
 			},
+			State:   body.State,
+			Message: body.Message,
+		}, nil
+	case contractv2.Pair_Create:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		createBody := &RpcExchangePairCreate{}
+		err = json.Unmarshal(bytes, createBody)
+		if err != nil {
+			return nil, err
+		}
+		amountADesired, _ := NewAmount(createBody.AmountADesired)
+		amountBDesired, _ := NewAmount(createBody.AmountBDesired)
+		amountAMin, _ := NewAmount(createBody.AmountAMin)
+		amountBMin, _ := NewAmount(createBody.AmountBMin)
+		return &ContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &exchange_func.ExchangePairCreate{
+				Exchange:       hasharry.StringToAddress(createBody.Exchange),
+				TokenA:         hasharry.StringToAddress(createBody.TokenA),
+				TokenB:         hasharry.StringToAddress(createBody.TokenB),
+				To:             hasharry.StringToAddress(createBody.To),
+				AmountADesired: amountADesired,
+				AmountBDesired: amountBDesired,
+				AmountAMin:     amountAMin,
+				AmountBMin:     amountBMin,
+			},
+			State:   body.State,
+			Message: body.Message,
 		}, nil
 	}
 	return nil, errors.New("wrong transaction body")

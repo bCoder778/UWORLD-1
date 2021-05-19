@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/uworldao/UWORLD/common/encode/rlp"
 	"github.com/uworldao/UWORLD/common/hasharry"
+	"github.com/uworldao/UWORLD/core/types/contractv2/exchange"
 )
 
 type ContractType uint
@@ -12,12 +13,14 @@ type FunctionType uint
 
 const (
 	Exchange_ ContractType = 0
+	Pair_                  = 1
 )
 
 const (
-	Exchange_Init_           FunctionType = 0
-	Exchange_SetFeeToSetter_              = 1
-	Exchange_SetFeeTo_                    = 2
+	Exchange_Init_     FunctionType = 0
+	Exchange_SetAdmin_              = 1
+	Exchange_SetFeeTo_              = 2
+	Pair_Create                     = 3
 )
 
 type ContractV2 struct {
@@ -38,19 +41,17 @@ func (c *ContractV2) Bytes() []byte {
 	return bytes
 }
 
-func (c *ContractV2) Verify(contractType ContractType, function FunctionType, sender hasharry.Address) error {
-	switch contractType {
-	case Exchange_:
-		ex, _ := c.Body.(*Exchange)
-		switch function {
-		case Exchange_Init_:
-			return fmt.Errorf("exchange %s already exist", c.Address.String())
-		case Exchange_SetFeeToSetter_:
-			return ex.VerifySetter(sender)
-		case Exchange_SetFeeTo_:
-			return ex.VerifySetter(sender)
-		}
+func (c *ContractV2) Verify(function FunctionType, sender hasharry.Address) error {
+	ex, _ := c.Body.(*exchange.Exchange)
+	switch function {
+	case Exchange_Init_:
+		return fmt.Errorf("exchange %s already exist", c.Address.String())
+	case Exchange_SetAdmin_:
+		return ex.VerifySetter(sender)
+	case Exchange_SetFeeTo_:
+		return ex.VerifySetter(sender)
 	}
+
 	return nil
 }
 
@@ -78,7 +79,7 @@ func DecodeContractV2(bytes []byte) (*ContractV2, error) {
 	}
 	switch rlpContract.Type {
 	case Exchange_:
-		ex, err := DecodeToExchange(rlpContract.Body)
+		ex, err := exchange.DecodeToExchange(rlpContract.Body)
 		if err != nil {
 			return nil, err
 		}

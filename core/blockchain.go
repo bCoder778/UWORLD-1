@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/consensus"
+	"github.com/uworldao/UWORLD/core/interface"
+	runner2 "github.com/uworldao/UWORLD/core/runner"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/database/blcdb"
 	log "github.com/uworldao/UWORLD/log/log15"
@@ -20,11 +22,12 @@ type BlockChain struct {
 	stateRoot     hasharry.Hash
 	contractRoot  hasharry.Hash
 	consensusRoot hasharry.Hash
-	accountState  IAccountState
-	contractState IContractState
+	accountState  _interface.IAccountState
+	contractState _interface.IContractState
 	consensus     consensus.IConsensus
-	storage       IBlockChainStorage
+	storage       _interface.IBlockChainStorage
 	mutex         sync.RWMutex
+	runner        *runner2.ContractRunner
 	stateUpdateCh chan struct{}
 
 	// List of transactions that have been stored and need
@@ -36,7 +39,7 @@ type BlockChain struct {
 }
 
 func NewBlockChain(dataDir string, consensus consensus.IConsensus, stateUpdateCh chan struct{},
-	removeTxsCh chan types.Transactions, accountState IAccountState, contractState IContractState) (*BlockChain, error) {
+	removeTxsCh chan types.Transactions, accountState _interface.IAccountState, contractState _interface.IContractState) (*BlockChain, error) {
 	blockChain := &BlockChain{}
 	storage := blcdb.NewBlockChainStorage(dataDir + "/" + blockChainStorage)
 	err := storage.Open()
@@ -50,6 +53,7 @@ func NewBlockChain(dataDir string, consensus consensus.IConsensus, stateUpdateCh
 	blockChain.stateUpdateCh = stateUpdateCh
 	blockChain.consensus = consensus
 	blockChain.removeTxsCh = removeTxsCh
+	blockChain.runner = runner2.NewContractRunner(accountState, contractState)
 	stateRoot, _ := blockChain.storage.GetStateRoot()
 	err = blockChain.accountState.InitTrie(stateRoot)
 	if err != nil {
@@ -295,7 +299,7 @@ func (blc *BlockChain) updateState(block *types.Block) error {
 			if err := blc.accountState.UpdateFrom(tx, block.Height); err != nil {
 				return err
 			}
-			if err := blc.contractState.UpdateContractV2(tx, block.Height); err != nil {
+			if err := blc.runner.RunContract(tx, block.Height, block.Time); err != nil {
 				return err
 			}
 			/*case types.VoteToCandidate:
@@ -381,7 +385,7 @@ func (blc *BlockChain) verifyBlock(block *types.Block) error {
 		log.Warn("consensus root wrong", "height", block.Header.Height, "consensus root", block.Header.ConsensusRoot.String())
 		return errors.New("wrong consensus root")
 	}
-	if err := blc.verifyTxs(block.Transactions, block.Height); err != nil {
+	if err := blc.verifyTxs(block.Transactions, block.Height, block.Time); err != nil {
 		return err
 	}
 	parent, err := blc.GetHeaderByHash(block.ParentHash)
@@ -397,7 +401,7 @@ func (blc *BlockChain) verifyBlock(block *types.Block) error {
 	return nil
 }
 
-func (blc *BlockChain) verifyTx(tx types.ITransaction, blockHeight uint64) error {
+func (blc *BlockChain) verifyTx(tx types.ITransaction, blockHeight uint64, blocktime uint64) error {
 	if err := tx.VerifyTx(); err != nil {
 		return err
 	}
@@ -414,6 +418,9 @@ func (blc *BlockChain) verifyTx(tx types.ITransaction, blockHeight uint64) error
 		return err
 	}
 
+	if err := blc.runner.Verify(tx, blockHeight, blocktime); err != nil {
+		return err
+	}
 	if err := blc.verifyBusiness(tx, blockHeight); err != nil {
 		return err
 	}
@@ -430,7 +437,7 @@ func (blc *BlockChain) verifyBusiness(tx types.ITransaction, blockHeight uint64)
 	return nil
 }
 
-func (blc *BlockChain) verifyTxs(txs types.Transactions, blockHeight uint64) error {
+func (blc *BlockChain) verifyTxs(txs types.Transactions, blockHeight, blockTime uint64) error {
 	address := make(map[string]bool)
 	for _, tx := range txs {
 		if tx.IsCoinBase() {
@@ -438,7 +445,7 @@ func (blc *BlockChain) verifyTxs(txs types.Transactions, blockHeight uint64) err
 				return err
 			}
 		} else {
-			if err := blc.verifyTx(tx, blockHeight); err != nil {
+			if err := blc.verifyTx(tx, blockHeight, blockTime); err != nil {
 				blc.removeTxsCh <- types.Transactions{tx}
 				return err
 			}

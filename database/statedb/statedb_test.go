@@ -35,8 +35,8 @@ func BenchmarkStateStorage_SetAccountState(b *testing.B) {
 			ConfirmedHeight: 0,
 			ConfirmedNonce:  0,
 			ConfirmedTime:   0,
-			JournalIn:       nil,
-			JournalOut:      nil,
+			OutJournal:      nil,
+			InJournal:       nil,
 		}
 		state.SetAccountState(account)
 	}

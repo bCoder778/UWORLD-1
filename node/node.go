@@ -9,6 +9,7 @@ import (
 	"github.com/uworldao/UWORLD/consensus"
 	"github.com/uworldao/UWORLD/consensus/dpos"
 	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/types"
 	log "github.com/uworldao/UWORLD/log/log15"
 	"github.com/uworldao/UWORLD/miner"
@@ -28,10 +29,10 @@ type Node struct {
 	// Local p2p information
 	localNode   *p2p.PeerInfo
 	p2pServer   *p2p.P2pServer
-	txPool      core.ITxPool
+	txPool      _interface.ITxPool
 	peerManager p2p.IPeerManager
 	blockManger *blkmgr.BlockManager
-	blockChain  core.IBlockChain
+	blockChain  _interface.IBlockChain
 	consensus   consensus.IConsensus
 	network     blkmgr.Network
 	// Node private key information

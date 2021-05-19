@@ -4,7 +4,7 @@ import (
 	"github.com/uworldao/UWORLD/common/encode/rlp"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	"github.com/uworldao/UWORLD/core/types/functionbody"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 )
 
 type RlpTransaction struct {
@@ -22,6 +22,8 @@ type RlpContractBody struct {
 	Type         contractv2.ContractType
 	FunctionType contractv2.FunctionType
 	Function     []byte
+	State        ContractState
+	Message      string
 }
 
 func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
@@ -46,17 +48,21 @@ func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
 		rlp.DecodeBytes(rt.TxBody, &rlpCt)
 		switch rlpCt.FunctionType {
 		case contractv2.Exchange_Init_:
-			var init *functionbody.ExchangeInitBody
+			var init *exchange_func.ExchangeInitBody
 			rlp.DecodeBytes(rlpCt.Function, &init)
 			ct.Function = init
-		case contractv2.Exchange_SetFeeToSetter_:
-			var set *functionbody.ExchangeFeeToSetter
+		case contractv2.Exchange_SetAdmin_:
+			var set *exchange_func.ExchangeAdmin
 			rlp.DecodeBytes(rlpCt.Function, &set)
 			ct.Function = set
 		case contractv2.Exchange_SetFeeTo_:
-			var set *functionbody.ExchangeFeeTo
+			var set *exchange_func.ExchangeFeeTo
 			rlp.DecodeBytes(rlpCt.Function, &set)
 			ct.Function = set
+		case contractv2.Pair_Create:
+			var create *exchange_func.ExchangePairCreate
+			rlp.DecodeBytes(rlpCt.Function, &create)
+			ct.Function = create
 		}
 		rlp.DecodeBytes(rt.TxBody, &ct)
 		return &Transaction{

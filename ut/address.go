@@ -3,7 +3,6 @@ package ut
 import (
 	"bytes"
 	"errors"
-	"github.com/uworldao/UWORLD/common/codec"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/crypto/base58"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
@@ -129,7 +128,7 @@ func GenerateContractAddress(net string, address string, abbr string) (string, e
 	return hasharry.StringToAddress(code58).String(), nil
 }
 
-func GenerateContractV2Address(net string, address string, nonce uint64) (string, error) {
+func GenerateContractV2Address(net string, bytes []byte) (string, error) {
 	ver := []byte{}
 	switch net {
 	case param.MainNet:
@@ -139,12 +138,7 @@ func GenerateContractV2Address(net string, address string, nonce uint64) (string
 	default:
 		return "", errors.New("wrong network")
 	}
-	if !CheckUWDAddress(net, address) {
-		return "", errors.New("incorrect address")
-	}
-	addrBytes := base58.Decode(address)
-	nonceBytes := codec.Uint64toBytes(nonce)
-	buffBytes := append(addrBytes, nonceBytes...)
+	buffBytes := bytes
 	hashed := hash.Hash(buffBytes)
 	hash160, err := hash.Hash160(hashed.Bytes())
 	if err != nil {
@@ -166,17 +160,6 @@ func CheckContractAddress(net string, address string, abbr string, contractAddre
 		return false
 	}
 	newAddress, err := GenerateContractAddress(net, address, abbr)
-	if err != nil {
-		return false
-	}
-	return newAddress == contractAddress
-}
-
-func CheckContractV2Address(net string, address string, nonce uint64, contractAddress string) bool {
-	if !IsValidContractAddress(net, contractAddress) {
-		return false
-	}
-	newAddress, err := GenerateContractV2Address(net, address, nonce)
 	if err != nil {
 		return false
 	}

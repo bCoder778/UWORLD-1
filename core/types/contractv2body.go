@@ -15,6 +15,8 @@ type ContractV2Body struct {
 	Type         contractv2.ContractType
 	FunctionType contractv2.FunctionType
 	Function     IFunction
+	State        ContractState
+	Message      string
 }
 
 func (c *ContractV2Body) ToAddress() hasharry.Address {
@@ -65,13 +67,26 @@ func (c *ContractV2Body) checkType() error {
 		switch c.FunctionType {
 		case contractv2.Exchange_Init_:
 			return nil
-		case contractv2.Exchange_SetFeeToSetter_:
+		case contractv2.Exchange_SetAdmin_:
 			return nil
 		case contractv2.Exchange_SetFeeTo_:
 			return nil
 		}
-
+		return errors.New("invalid contract function type")
+	case contractv2.Pair_:
+		switch c.FunctionType {
+		case contractv2.Pair_Create:
+			return nil
+		}
 		return errors.New("invalid contract function type")
 	}
 	return errors.New("invalid contract type")
 }
+
+type ContractState uint8
+
+const (
+	Contract_Wait    ContractState = 0
+	Contract_Success               = 1
+	Contract_Failed                = 2
+)

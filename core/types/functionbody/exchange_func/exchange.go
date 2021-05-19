@@ -1,4 +1,4 @@
-package functionbody
+package exchange_func
 
 import (
 	"errors"
@@ -8,13 +8,13 @@ import (
 )
 
 type ExchangeInitBody struct {
-	FeeToSetter hasharry.Address
-	FeeTo       hasharry.Address
+	Admin hasharry.Address
+	FeeTo hasharry.Address
 }
 
 func (e *ExchangeInitBody) Verify() error {
-	if ok := ut.CheckUWDAddress(param.Net, e.FeeToSetter.String()); !ok {
-		return errors.New("wrong feeToSetter address")
+	if ok := ut.CheckUWDAddress(param.Net, e.Admin.String()); !ok {
+		return errors.New("wrong admin address")
 	}
 	feeTo := e.FeeTo.String()
 	if feeTo != "" {
@@ -25,13 +25,13 @@ func (e *ExchangeInitBody) Verify() error {
 	return nil
 }
 
-type ExchangeFeeToSetter struct {
+type ExchangeAdmin struct {
 	Address hasharry.Address
 }
 
-func (e *ExchangeFeeToSetter) Verify() error {
+func (e *ExchangeAdmin) Verify() error {
 	if ok := ut.CheckUWDAddress(param.Net, e.Address.String()); !ok {
-		return errors.New("wrong feeToSetter address")
+		return errors.New("wrong admin address")
 	}
 	return nil
 }

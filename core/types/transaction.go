@@ -6,7 +6,7 @@ import (
 	"github.com/uworldao/UWORLD/common/encode/rlp"
 	hash2 "github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	"github.com/uworldao/UWORLD/core/types/functionbody"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
 	"github.com/uworldao/UWORLD/crypto/hash"
 	"github.com/uworldao/UWORLD/param"
@@ -315,6 +315,10 @@ func (t *Transaction) GetTxBody() ITransactionBody {
 	return t.TxBody
 }
 
+func (t *Transaction) SetTxBody(body ITransactionBody) {
+	t.TxBody = body
+}
+
 func (t *Transaction) TranslateToRlpTransaction() *RlpTransaction {
 	rlpTx := &RlpTransaction{}
 	rlpTx.TxHead = t.TxHead
@@ -332,15 +336,19 @@ func (t *Transaction) TranslateToRlpTransaction() *RlpTransaction {
 		}
 		switch body.FunctionType {
 		case contractv2.Exchange_Init_:
-			function, _ := body.Function.(*functionbody.ExchangeInitBody)
+			function, _ := body.Function.(*exchange_func.ExchangeInitBody)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
-		case contractv2.Exchange_SetFeeToSetter_:
-			function, _ := body.Function.(*functionbody.ExchangeFeeToSetter)
+		case contractv2.Exchange_SetAdmin_:
+			function, _ := body.Function.(*exchange_func.ExchangeAdmin)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
 		case contractv2.Exchange_SetFeeTo_:
-			function, _ := body.Function.(*functionbody.ExchangeFeeTo)
+			function, _ := body.Function.(*exchange_func.ExchangeFeeTo)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Pair_Create:
+			function, _ := body.Function.(*exchange_func.ExchangePairCreate)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
 		}

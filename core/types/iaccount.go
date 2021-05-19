@@ -16,6 +16,8 @@ type IAccount interface {
 	ToChange(tx ITransaction, blockHeight uint64) error
 	FeesChange(fees, blockHeight uint64)
 	ConsumptionChange(fees, blockHeight uint64)
+	TransferOut(token hasharry.Address, amount, height uint64) error
+	TransferIn(token hasharry.Address, amount, height uint64) error
 	VerifyTxState(tx ITransaction) error
 	VerifyNonce(nonce uint64) error
 	IsEmpty() bool

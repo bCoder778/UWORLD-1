@@ -24,8 +24,8 @@ func TranslateAccountToRpcAccount(account *types.Account) *Account {
 	for _, coinAccount := range *account.Coins {
 		coins = append(coins, &CoinAccount{
 			Contract:  coinAccount.Contract,
-			LockedOut: types.Amount(coinAccount.LockIn).ToCoin(),
-			LockedIn:  types.Amount(coinAccount.LockOut).ToCoin(),
+			LockedOut: types.Amount(coinAccount.LockOut).ToCoin(),
+			LockedIn:  types.Amount(coinAccount.LockIn).ToCoin(),
 			Balance:   types.Amount(coinAccount.Balance).ToCoin(),
 		})
 	}

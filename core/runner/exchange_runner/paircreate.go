@@ -133,14 +133,13 @@ func (p *PairCreateRunner) quote(amountA, reserveA, reserveB uint64) (uint64, er
 
 func (p *PairCreateRunner) Run() {
 	var ERR error
+	state := &types.ContractV2State{State: types.Contract_Success}
 	defer func() {
 		if ERR != nil {
-			p.contractBody.State = types.Contract_Failed
-			p.contractBody.Message = ERR.Error()
-		} else {
-			p.contractBody.State = types.Contract_Success
+			state.State = types.Contract_Failed
+			state.Message = ERR.Error()
 		}
-		p.tx.SetTxBody(p.contractBody)
+		p.library.SetContractV2State(p.tx.Hash().String(), state)
 	}()
 
 	if p.exHeader == nil {

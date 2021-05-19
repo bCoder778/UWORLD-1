@@ -165,8 +165,6 @@ func translateContractV2ToRpcContractV2(body *ContractV2Body) (*RpcContractV2Tra
 		Contract:     body.Contract.String(),
 		Type:         body.Type,
 		FunctionType: body.FunctionType,
-		State:        body.State,
-		Message:      body.Message,
 	}
 	switch body.FunctionType {
 	case contractv2.Exchange_Init_:
@@ -297,8 +295,6 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 				Admin: hasharry.StringToAddress(init.Admin),
 				FeeTo: hasharry.StringToAddress(init.FeeTo),
 			},
-			State:   body.State,
-			Message: body.Message,
 		}, nil
 	case contractv2.Exchange_SetAdmin_:
 		bytes, err := json.Marshal(body.Function)
@@ -319,8 +315,6 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Function: &exchange_func.ExchangeAdmin{
 				Address: hasharry.StringToAddress(setBody.Address),
 			},
-			State:   body.State,
-			Message: body.Message,
 		}, nil
 	case contractv2.Exchange_SetFeeTo_:
 		bytes, err := json.Marshal(body.Function)
@@ -341,8 +335,6 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Function: &exchange_func.ExchangeFeeTo{
 				Address: hasharry.StringToAddress(setBody.Address),
 			},
-			State:   body.State,
-			Message: body.Message,
 		}, nil
 	case contractv2.Pair_Create:
 		bytes, err := json.Marshal(body.Function)
@@ -372,8 +364,6 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 				AmountAMin:     amountAMin,
 				AmountBMin:     amountBMin,
 			},
-			State:   body.State,
-			Message: body.Message,
 		}, nil
 	}
 	return nil, errors.New("wrong transaction body")

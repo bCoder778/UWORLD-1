@@ -39,7 +39,7 @@ type BlockChain struct {
 }
 
 func NewBlockChain(dataDir string, consensus consensus.IConsensus, stateUpdateCh chan struct{},
-	removeTxsCh chan types.Transactions, accountState _interface.IAccountState, contractState _interface.IContractState) (*BlockChain, error) {
+	removeTxsCh chan types.Transactions, accountState _interface.IAccountState, contractState _interface.IContractState, runner *runner2.ContractRunner) (*BlockChain, error) {
 	blockChain := &BlockChain{}
 	storage := blcdb.NewBlockChainStorage(dataDir + "/" + blockChainStorage)
 	err := storage.Open()
@@ -53,7 +53,7 @@ func NewBlockChain(dataDir string, consensus consensus.IConsensus, stateUpdateCh
 	blockChain.stateUpdateCh = stateUpdateCh
 	blockChain.consensus = consensus
 	blockChain.removeTxsCh = removeTxsCh
-	blockChain.runner = runner2.NewContractRunner(accountState, contractState)
+	blockChain.runner = runner
 	stateRoot, _ := blockChain.storage.GetStateRoot()
 	err = blockChain.accountState.InitTrie(stateRoot)
 	if err != nil {
@@ -418,9 +418,9 @@ func (blc *BlockChain) verifyTx(tx types.ITransaction, blockHeight uint64, block
 		return err
 	}
 
-	if err := blc.runner.Verify(tx, blockHeight, blocktime); err != nil {
-		return err
-	}
+	//if err := blc.runner.Verify(tx, blockHeight, blocktime); err != nil {
+	//return err
+	//}
 	if err := blc.verifyBusiness(tx, blockHeight); err != nil {
 		return err
 	}

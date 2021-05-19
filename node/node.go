@@ -10,6 +10,7 @@ import (
 	"github.com/uworldao/UWORLD/consensus/dpos"
 	"github.com/uworldao/UWORLD/core"
 	"github.com/uworldao/UWORLD/core/interface"
+	runner2 "github.com/uworldao/UWORLD/core/runner"
 	"github.com/uworldao/UWORLD/core/types"
 	log "github.com/uworldao/UWORLD/log/log15"
 	"github.com/uworldao/UWORLD/miner"
@@ -66,7 +67,8 @@ func NewNode(cfg *config.Config) (*Node, error) {
 		return nil, fmt.Errorf("create dpos failed! err:%s", err)
 	}
 
-	if node.blockChain, err = core.NewBlockChain(cfg.DataDir, node.consensus, stateUpdateChan, removeTxsCh, accountState, contractState); err != nil {
+	runner := runner2.NewContractRunner(accountState, contractState)
+	if node.blockChain, err = core.NewBlockChain(cfg.DataDir, node.consensus, stateUpdateChan, removeTxsCh, accountState, contractState, runner); err != nil {
 		return nil, fmt.Errorf("create block chain failed! err:%s", err)
 	}
 
@@ -76,7 +78,7 @@ func NewNode(cfg *config.Config) (*Node, error) {
 		return nil, fmt.Errorf("create p2p server failed! err:%s", err)
 	}
 
-	node.txPool = txmgr.NewTxPool(cfg, accountState, contractState, node.consensus, node.peerManager, node.network, revTxCh, stateUpdateChan, removeTxsCh, node.p2pServer)
+	node.txPool = txmgr.NewTxPool(cfg, accountState, contractState, node.consensus, node.peerManager, node.network, runner, revTxCh, stateUpdateChan, removeTxsCh, node.p2pServer)
 
 	if err := node.consensus.Init(node.blockChain); err != nil {
 		return nil, fmt.Errorf("init consensus failed! err:%s", err)

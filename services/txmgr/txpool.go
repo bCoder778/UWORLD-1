@@ -6,6 +6,7 @@ import (
 	"github.com/uworldao/UWORLD/config"
 	"github.com/uworldao/UWORLD/consensus"
 	"github.com/uworldao/UWORLD/core/interface"
+	runner2 "github.com/uworldao/UWORLD/core/runner"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/database/pooldb"
 	log "github.com/uworldao/UWORLD/log/log15"
@@ -29,6 +30,7 @@ const txPoolStorage = "txpool"
 type TxPool struct {
 	accountState  _interface.IAccountState
 	contractState _interface.IContractState
+	runner        *runner2.ContractRunner
 	consensus     consensus.IConsensus
 	txs           *list.TxList
 	peerManager   p2p.IPeerManager
@@ -41,7 +43,8 @@ type TxPool struct {
 	stop          chan bool
 }
 
-func NewTxPool(config *config.Config, accountState _interface.IAccountState, contractState _interface.IContractState, consensus consensus.IConsensus, peerManager p2p.IPeerManager, network blkmgr.Network,
+func NewTxPool(config *config.Config, accountState _interface.IAccountState, contractState _interface.IContractState, consensus consensus.IConsensus,
+	peerManager p2p.IPeerManager, network blkmgr.Network, runner *runner2.ContractRunner,
 	recTx chan types.ITransaction, stateUpdateCh chan struct{}, removeTxsCh chan types.Transactions,
 	newStream blkmgr.ICreateStream) *TxPool {
 
@@ -49,6 +52,7 @@ func NewTxPool(config *config.Config, accountState _interface.IAccountState, con
 		accountState:  accountState,
 		contractState: contractState,
 		consensus:     consensus,
+		runner:        runner,
 		txs:           list.NewTxList(accountState, pooldb.NewTxPoolStorage(config.DataDir+"/"+txPoolStorage)),
 		peerManager:   peerManager,
 		network:       network,
@@ -204,6 +208,10 @@ func (tp *TxPool) verifyTx(tx types.ITransaction) error {
 	}
 
 	if err := tp.contractState.VerifyState(tx); err != nil {
+		return err
+	}
+
+	if err := tp.runner.Verify(tx); err != nil {
 		return err
 	}
 

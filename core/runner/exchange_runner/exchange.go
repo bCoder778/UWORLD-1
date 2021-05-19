@@ -40,6 +40,16 @@ func (e *ExchangeRunner) PreVerify(from hasharry.Address, contract hasharry.Addr
 }
 
 func (e *ExchangeRunner) Init(head *types.TransactionHead, body *types.ContractV2Body, height uint64) {
+	var ERR error
+	state := &types.ContractV2State{State: types.Contract_Success}
+	defer func() {
+		if ERR != nil {
+			state.State = types.Contract_Failed
+			state.Message = ERR.Error()
+		}
+		e.library.SetContractV2State(head.TxHash.String(), state)
+	}()
+
 	contract := &contractv2.ContractV2{
 		Address:    body.GetContract(),
 		CreateHash: head.TxHash,
@@ -48,49 +58,64 @@ func (e *ExchangeRunner) Init(head *types.TransactionHead, body *types.ContractV
 	}
 	contractV2 := e.library.GetContractV2(contract.Address.String())
 	if contractV2 != nil {
-		body.State = types.Contract_Failed
-		body.Message = fmt.Sprintf("exchange %s already exist", contract.Address.String())
+		ERR = fmt.Errorf("exchange %s already exist", contract.Address.String())
 		return
 	}
 	initBody := body.Function.(*exchange_func.ExchangeInitBody)
 	contract.Body = exchange.NewExchange(initBody.Admin, initBody.FeeTo)
 	e.library.SetContractV2(contract)
-	body.State = types.Contract_Success
 }
 
 func (e *ExchangeRunner) SetAdmin(head *types.TransactionHead, body *types.ContractV2Body, height uint64) {
+	var ERR error
+	state := &types.ContractV2State{State: types.Contract_Success}
+	defer func() {
+		if ERR != nil {
+			state.State = types.Contract_Failed
+			state.Message = ERR.Error()
+		}
+		e.library.SetContractV2State(head.TxHash.String(), state)
+	}()
+
 	ctrV2 := e.library.GetContractV2(body.Contract.String())
 	if ctrV2 == nil {
-		body.State = types.Contract_Failed
-		body.Message = fmt.Sprintf("exchanges %s is not exist", body.Contract.String())
+		ERR = fmt.Errorf("exchanges %s is not exist", body.Contract.String())
 		return
 	}
 	funcBody, _ := body.Function.(*exchange_func.ExchangeAdmin)
 	ex, _ := ctrV2.Body.(*exchange.Exchange)
 	if err := ex.SetAdmin(funcBody.Address, head.From); err != nil {
-		body.State = types.Contract_Failed
-		body.Message = err.Error()
+		ERR = err
+		return
 	}
 	ctrV2.Body = ex
 	e.library.SetContractV2(ctrV2)
-	body.State = types.Contract_Success
 }
 
 func (e *ExchangeRunner) SetFeeTo(head *types.TransactionHead, body *types.ContractV2Body, height uint64) {
+	var ERR error
+	state := &types.ContractV2State{State: types.Contract_Success}
+	defer func() {
+		if ERR != nil {
+			state.State = types.Contract_Failed
+			state.Message = ERR.Error()
+		}
+		e.library.SetContractV2State(head.TxHash.String(), state)
+	}()
+
 	ctrV2 := e.library.GetContractV2(body.Contract.String())
 	if ctrV2 == nil {
-		body.State = types.Contract_Failed
-		body.Message = fmt.Sprintf("exchanges %s is not exist", body.Contract.String())
+		ERR = fmt.Errorf("exchanges %s is not exist", body.Contract.String())
+		return
 	}
 	funcBody, _ := body.Function.(*exchange_func.ExchangeFeeTo)
 	ex, _ := ctrV2.Body.(*exchange.Exchange)
 	if err := ex.SetFeeTo(funcBody.Address, head.From); err != nil {
-		body.State = types.Contract_Failed
-		body.Message = err.Error()
+		ERR = err
+		return
 	}
 	ctrV2.Body = ex
 	e.library.SetContractV2(ctrV2)
-	body.State = types.Contract_Success
 }
 
 func ExchangeAddress(net, from string, nonce uint64) (string, error) {

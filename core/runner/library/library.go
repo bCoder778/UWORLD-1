@@ -32,6 +32,10 @@ func (r *RunnerLibrary) SetContractV2(contract *contractv2.ContractV2) {
 	r.cState.SetContractV2(contract)
 }
 
+func (r RunnerLibrary) SetContractV2State(txHash string, state *types.ContractV2State) {
+
+}
+
 func (r *RunnerLibrary) Transfer(sender, to, token hasharry.Address, amount, height uint64) error {
 	return r.aState.Transfer(sender, to, token, amount, height)
 }

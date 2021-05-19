@@ -21,7 +21,10 @@ func NewContractRunner(accountState _interface.IAccountState, contractState _int
 	}
 }
 
-func (c *ContractRunner) Verify(tx types.ITransaction, height, blockTime uint64) error {
+func (c *ContractRunner) Verify(tx types.ITransaction) error {
+	if tx.GetTxType() != types.ContractV2_ {
+		return nil
+	}
 	body, _ := tx.GetTxBody().(*types.ContractV2Body)
 	switch body.Type {
 	case contractv2.Exchange_:
@@ -30,7 +33,7 @@ func (c *ContractRunner) Verify(tx types.ITransaction, height, blockTime uint64)
 	case contractv2.Pair_:
 		switch body.FunctionType {
 		case contractv2.Pair_Create:
-			pair := exchange_runner.NewPairCreateRunner(c.library, tx, height, blockTime)
+			pair := exchange_runner.NewPairCreateRunner(c.library, tx, 0, 0)
 			return pair.PreVerify()
 		}
 	}

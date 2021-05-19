@@ -15,8 +15,11 @@ type ContractV2Body struct {
 	Type         contractv2.ContractType
 	FunctionType contractv2.FunctionType
 	Function     IFunction
-	State        ContractState
-	Message      string
+}
+
+type ContractV2State struct {
+	State   ContractState
+	Message string
 }
 
 func (c *ContractV2Body) ToAddress() hasharry.Address {

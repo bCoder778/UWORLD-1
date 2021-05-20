@@ -20,7 +20,9 @@ const (
 	Exchange_Init_     FunctionType = 0
 	Exchange_SetAdmin_              = 1
 	Exchange_SetFeeTo_              = 2
-	Pair_Create                     = 3
+	Exchange_ExactIn                = 3
+	Exchange_ExactOut               = 4
+	Pair_Create                     = 5
 )
 
 type ContractV2 struct {

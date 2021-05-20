@@ -174,3 +174,69 @@ func NewPairCreate(net, from, to, exchange, tokenA, tokenB string, amountADesire
 	tx.SetHash()
 	return tx, nil
 }
+
+func NewSwapExactIn(from, to, exchange string, amountIn, amountOutMin uint64, path []string, deadline, nonce uint64, note string) (*types.Transaction, error) {
+	address := make([]hasharry.Address, 0)
+	for _, addr := range path {
+		address = append(address, hasharry.StringToAddress(addr))
+	}
+	tx := &types.Transaction{
+		TxHead: &types.TransactionHead{
+			TxType:     types.ContractV2_,
+			TxHash:     hasharry.Hash{},
+			From:       hasharry.StringToAddress(from),
+			Nonce:      nonce,
+			Time:       uint64(time.Now().Unix()),
+			Note:       note,
+			SignScript: &types.SignScript{},
+			Fees:       param.Fees,
+		},
+		TxBody: &types.ContractV2Body{
+			Contract:     hasharry.StringToAddress(exchange),
+			Type:         contractv2.Exchange_,
+			FunctionType: contractv2.Exchange_ExactIn,
+			Function: &exchange_func.ExactIn{
+				AmountIn:     amountIn,
+				AmountOutMin: amountOutMin,
+				Address:      address,
+				To:           hasharry.StringToAddress(to),
+				Deadline:     deadline,
+			},
+		},
+	}
+	tx.SetHash()
+	return tx, nil
+}
+
+func NewSwapExactOut(from, to, exchange string, amountOut, amountInMax uint64, path []string, deadline, nonce uint64, note string) (*types.Transaction, error) {
+	address := make([]hasharry.Address, 0)
+	for _, addr := range path {
+		address = append(address, hasharry.StringToAddress(addr))
+	}
+	tx := &types.Transaction{
+		TxHead: &types.TransactionHead{
+			TxType:     types.ContractV2_,
+			TxHash:     hasharry.Hash{},
+			From:       hasharry.StringToAddress(from),
+			Nonce:      nonce,
+			Time:       uint64(time.Now().Unix()),
+			Note:       note,
+			SignScript: &types.SignScript{},
+			Fees:       param.Fees,
+		},
+		TxBody: &types.ContractV2Body{
+			Contract:     hasharry.StringToAddress(exchange),
+			Type:         contractv2.Exchange_,
+			FunctionType: contractv2.Exchange_ExactOut,
+			Function: &exchange_func.ExactOut{
+				AmountOut:   amountOut,
+				AmountInMax: amountInMax,
+				Address:     address,
+				To:          hasharry.StringToAddress(to),
+				Deadline:    deadline,
+			},
+		},
+	}
+	tx.SetHash()
+	return tx, nil
+}

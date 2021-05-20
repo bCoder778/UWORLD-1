@@ -21,7 +21,7 @@ type Account struct {
 	InJournal       *inJournal
 }
 
-func NewAccount() *Account {
+func NewAccount(stateKey hasharry.Address) *Account {
 	coin := &CoinAccount{
 		Contract: param.Token.String(),
 		Balance:  0,
@@ -29,7 +29,7 @@ func NewAccount() *Account {
 		LockIn:   0,
 	}
 	return &Account{
-		Address:         hasharry.Address{},
+		Address:         stateKey,
 		Nonce:           0,
 		Time:            0,
 		ConfirmedHeight: 0,

@@ -13,10 +13,8 @@ import (
 	"github.com/uworldao/UWORLD/crypto/certgen"
 	log "github.com/uworldao/UWORLD/log/log15"
 	"github.com/uworldao/UWORLD/p2p"
-	"github.com/uworldao/UWORLD/param"
 	"github.com/uworldao/UWORLD/rpc/rpctypes"
 	"github.com/uworldao/UWORLD/services/reqmgr"
-	"github.com/uworldao/UWORLD/ut"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -119,9 +117,6 @@ func (rs *Server) SendTransaction(_ context.Context, req *Bytes) (*Response, err
 }
 
 func (rs *Server) GetAccount(_ context.Context, req *Address) (*Response, error) {
-	if !ut.CheckUWDAddress(param.Net, req.Address) {
-		return NewResponse(rpctypes.RpcErrParam, nil, fmt.Sprintf("%s address check failed", req.Address)), nil
-	}
 	addr := hasharry.StringToAddress(req.Address)
 	account := rs.accountState.GetAccountState(addr)
 	rpcAccount := rpctypes.TranslateAccountToRpcAccount(account.(*coreTypes.Account))

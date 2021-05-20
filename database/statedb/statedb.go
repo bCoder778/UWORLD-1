@@ -40,11 +40,11 @@ func (s *StateStorage) Close() error {
 }
 
 func (s *StateStorage) GetAccountState(stateKey hasharry.Address) types.IAccount {
-	account := types.NewAccount()
+	account := types.NewAccount(stateKey)
 	bytes := s.stateTrie.Get(stateKey.Bytes())
 	err := rlp.DecodeBytes(bytes, &account)
 	if err != nil {
-		return types.NewAccount()
+		return types.NewAccount(stateKey)
 	}
 	return account
 }
@@ -58,7 +58,7 @@ func (s *StateStorage) SetAccountState(account types.IAccount) {
 }
 
 func (s *StateStorage) GetAccountBalance(stateKey hasharry.Address, contract string) uint64 {
-	account := types.NewAccount()
+	account := types.NewAccount(stateKey)
 	bytes := s.stateTrie.Get(stateKey.Bytes())
 	err := rlp.DecodeBytes(bytes, &account)
 	if err != nil {
@@ -68,7 +68,7 @@ func (s *StateStorage) GetAccountBalance(stateKey hasharry.Address, contract str
 }
 
 func (s *StateStorage) GetAccountNonce(stateKey hasharry.Address) uint64 {
-	account := types.NewAccount()
+	account := types.NewAccount(stateKey)
 	bytes := s.stateTrie.Get(stateKey.Bytes())
 	err := rlp.DecodeBytes(bytes, &account)
 	if err != nil {

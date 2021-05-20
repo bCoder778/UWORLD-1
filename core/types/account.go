@@ -681,8 +681,9 @@ func (t *TxOutList) Get(height uint64) (*txOut, bool) {
 
 func (t *TxOutList) Set(txOut *txOut) {
 	for i, out := range *t {
-		if out.Height == txOut.Height {
-			(*t)[i] = txOut
+		if out.Height == txOut.Height && out.Contract == txOut.Contract {
+			(*t)[i].Amount += txOut.Amount
+			(*t)[i].Fees += txOut.Fees
 			return
 		}
 	}

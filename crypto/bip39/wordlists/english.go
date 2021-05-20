@@ -649,7 +649,7 @@ evolve
 exact
 example
 excess
-exchange
+factory
 excite
 exclude
 excuse

@@ -62,13 +62,13 @@ func (c *ContractV2Body) VerifyBody(address hasharry.Address) error {
 
 func (c *ContractV2Body) checkType() error {
 	switch c.Type {
-	case contractv2.Exchange_:
+	case contractv2.Factory_:
 		switch c.FunctionType {
-		case contractv2.Exchange_Init_:
+		case contractv2.Factory_Init_:
 			return nil
-		case contractv2.Exchange_SetAdmin_:
+		case contractv2.Factory_SetAdmin_:
 			return nil
-		case contractv2.Exchange_SetFeeTo_:
+		case contractv2.Factory_SetFeeTo_:
 			return nil
 		}
 		return errors.New("invalid contract function type")

@@ -1,4 +1,4 @@
-package exchange
+package factory
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ type Test struct {
 	List []PairTest
 }
 
-func TestNewExchange(t *testing.T) {
+func TestNewFactory(t *testing.T) {
 	p := PairTest{Address: "123"}
 	te := make([]PairTest, 0)
 	te = append(te, p)

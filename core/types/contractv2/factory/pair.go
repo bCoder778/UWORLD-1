@@ -1,4 +1,4 @@
-package exchange
+package factory
 
 import (
 	"github.com/uworldao/UWORLD/common/encode/rlp"
@@ -9,7 +9,7 @@ import (
 const MINIMUM_LIQUIDITY = 1e3
 
 type Pair struct {
-	Exchange             hasharry.Address
+	Factory              hasharry.Address
 	Token0               hasharry.Address
 	Token1               hasharry.Address
 	Reserve0             uint64
@@ -22,9 +22,9 @@ type Pair struct {
 	*liquidityList
 }
 
-func NewPair(exchange, token0, token1 hasharry.Address) *Pair {
+func NewPair(factory, token0, token1 hasharry.Address) *Pair {
 	return &Pair{
-		Exchange:             exchange,
+		Factory:              factory,
 		Token0:               token0,
 		Token1:               token1,
 		Reserve0:             0,

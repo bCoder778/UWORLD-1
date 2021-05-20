@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"github.com/uworldao/UWORLD/common/encode/rlp"
 	"github.com/uworldao/UWORLD/common/hasharry"
-	"github.com/uworldao/UWORLD/core/types/contractv2/exchange"
+	"github.com/uworldao/UWORLD/core/types/contractv2/factory"
 )
 
 type ContractType uint
 type FunctionType uint
 
 const (
-	Exchange_ ContractType = 0
-	Pair_                  = 1
+	Factory_ ContractType = 0
+	Pair_                 = 1
 )
 
 const (
-	Exchange_Init_     FunctionType = 0
-	Exchange_SetAdmin_              = 1
-	Exchange_SetFeeTo_              = 2
-	Pair_Create                     = 3
+	Factory_Init_     FunctionType = 0
+	Factory_SetAdmin_              = 1
+	Factory_SetFeeTo_              = 2
+	Pair_Create                    = 3
 )
 
 type ContractV2 struct {
@@ -42,13 +42,13 @@ func (c *ContractV2) Bytes() []byte {
 }
 
 func (c *ContractV2) Verify(function FunctionType, sender hasharry.Address) error {
-	ex, _ := c.Body.(*exchange.Exchange)
+	ex, _ := c.Body.(*factory.Factory)
 	switch function {
-	case Exchange_Init_:
-		return fmt.Errorf("exchange %s already exist", c.Address.String())
-	case Exchange_SetAdmin_:
+	case Factory_Init_:
+		return fmt.Errorf("factory %s already exist", c.Address.String())
+	case Factory_SetAdmin_:
 		return ex.VerifySetter(sender)
-	case Exchange_SetFeeTo_:
+	case Factory_SetFeeTo_:
 		return ex.VerifySetter(sender)
 	}
 
@@ -78,15 +78,15 @@ func DecodeContractV2(bytes []byte) (*ContractV2, error) {
 		Body:       nil,
 	}
 	switch rlpContract.Type {
-	case Exchange_:
-		ex, err := exchange.DecodeToExchange(rlpContract.Body)
+	case Factory_:
+		ex, err := factory.DecodeToFactory(rlpContract.Body)
 		if err != nil {
 			return nil, err
 		}
 		contract.Body = ex
 		return contract, err
 	case Pair_:
-		pair, err := exchange.DecodeToPair(rlpContract.Body)
+		pair, err := factory.DecodeToPair(rlpContract.Body)
 		if err != nil {
 			return nil, err
 		}

@@ -140,7 +140,7 @@ func compressPublicKey(x *big.Int, y *big.Int) []byte {
 	return key.Bytes()
 }
 
-// As described at https://crypto.stackexchange.com/a/8916
+// As described at https://crypto.stackfactory.com/a/8916
 func expandPublicKey(key []byte) (*big.Int, *big.Int) {
 	Y := big.NewInt(0)
 	X := big.NewInt(0)

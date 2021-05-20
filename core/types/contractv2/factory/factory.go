@@ -1,4 +1,4 @@
-package exchange
+package factory
 
 import (
 	"errors"
@@ -13,21 +13,21 @@ type PairAddress struct {
 	Address hasharry.Address
 }
 
-type RlpExchange struct {
+type RlpFactory struct {
 	FeeTo    hasharry.Address
 	Admin    hasharry.Address
 	AllPairs []PairAddress
 }
 
-type Exchange struct {
+type Factory struct {
 	FeeTo    hasharry.Address
 	Admin    hasharry.Address
 	Pair     map[hasharry.Address]map[hasharry.Address]hasharry.Address
 	AllPairs []PairAddress
 }
 
-func NewExchange(admin, feeTo hasharry.Address) *Exchange {
-	return &Exchange{
+func NewFactory(admin, feeTo hasharry.Address) *Factory {
+	return &Factory{
 		FeeTo:    admin,
 		Admin:    feeTo,
 		Pair:     make(map[hasharry.Address]map[hasharry.Address]hasharry.Address),
@@ -35,7 +35,7 @@ func NewExchange(admin, feeTo hasharry.Address) *Exchange {
 	}
 }
 
-func (e *Exchange) SetFeeTo(address hasharry.Address, sender hasharry.Address) error {
+func (e *Factory) SetFeeTo(address hasharry.Address, sender hasharry.Address) error {
 	if err := e.VerifySetter(sender); err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (e *Exchange) SetFeeTo(address hasharry.Address, sender hasharry.Address) e
 	return nil
 }
 
-func (e *Exchange) SetAdmin(address hasharry.Address, sender hasharry.Address) error {
+func (e *Factory) SetAdmin(address hasharry.Address, sender hasharry.Address) error {
 	if err := e.VerifySetter(sender); err != nil {
 		return err
 	}
@@ -51,14 +51,14 @@ func (e *Exchange) SetAdmin(address hasharry.Address, sender hasharry.Address) e
 	return nil
 }
 
-func (e *Exchange) VerifySetter(sender hasharry.Address) error {
+func (e *Factory) VerifySetter(sender hasharry.Address) error {
 	if !e.Admin.IsEqual(sender) {
 		return errors.New("forbidden")
 	}
 	return nil
 }
 
-func (e *Exchange) Exist(token0, token1 hasharry.Address) bool {
+func (e *Factory) Exist(token0, token1 hasharry.Address) bool {
 	token1Map, ok := e.Pair[token0]
 	if ok {
 		_, ok := token1Map[token1]
@@ -67,7 +67,7 @@ func (e *Exchange) Exist(token0, token1 hasharry.Address) bool {
 	return false
 }
 
-func (e *Exchange) AddPair(token0, token1, address hasharry.Address) {
+func (e *Factory) AddPair(token0, token1, address hasharry.Address) {
 	e.Pair[token0] = map[hasharry.Address]hasharry.Address{token1: address}
 	e.AllPairs = append(e.AllPairs, PairAddress{
 		Key:     pairKey(token0, token1),
@@ -75,8 +75,8 @@ func (e *Exchange) AddPair(token0, token1, address hasharry.Address) {
 	})
 }
 
-func (e *Exchange) Bytes() []byte {
-	elpEx := &RlpExchange{
+func (e *Factory) Bytes() []byte {
+	elpEx := &RlpFactory{
 		FeeTo:    e.FeeTo,
 		Admin:    e.Admin,
 		AllPairs: e.AllPairs,
@@ -85,12 +85,12 @@ func (e *Exchange) Bytes() []byte {
 	return bytes
 }
 
-func DecodeToExchange(bytes []byte) (*Exchange, error) {
-	var rlpEx *RlpExchange
+func DecodeToFactory(bytes []byte) (*Factory, error) {
+	var rlpEx *RlpFactory
 	if err := rlp.DecodeBytes(bytes, &rlpEx); err != nil {
 		return nil, err
 	}
-	ex := NewExchange(rlpEx.Admin, rlpEx.FeeTo)
+	ex := NewFactory(rlpEx.Admin, rlpEx.FeeTo)
 	ex.AllPairs = rlpEx.AllPairs
 	for _, pair := range rlpEx.AllPairs {
 		tokenB, token2 := parseKey(pair.Key)

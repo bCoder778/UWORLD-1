@@ -6,7 +6,7 @@ import (
 	"github.com/uworldao/UWORLD/common/encode/rlp"
 	hash2 "github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
+	"github.com/uworldao/UWORLD/core/types/functionbody/factory_func"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
 	"github.com/uworldao/UWORLD/crypto/hash"
 	"github.com/uworldao/UWORLD/param"
@@ -335,20 +335,20 @@ func (t *Transaction) TranslateToRlpTransaction() *RlpTransaction {
 			},
 		}
 		switch body.FunctionType {
-		case contractv2.Exchange_Init_:
-			function, _ := body.Function.(*exchange_func.ExchangeInitBody)
+		case contractv2.Factory_Init_:
+			function, _ := body.Function.(*factory_func.FactoryInitBody)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
-		case contractv2.Exchange_SetAdmin_:
-			function, _ := body.Function.(*exchange_func.ExchangeAdmin)
+		case contractv2.Factory_SetAdmin_:
+			function, _ := body.Function.(*factory_func.FactoryAdmin)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
-		case contractv2.Exchange_SetFeeTo_:
-			function, _ := body.Function.(*exchange_func.ExchangeFeeTo)
+		case contractv2.Factory_SetFeeTo_:
+			function, _ := body.Function.(*factory_func.FactoryFeeTo)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
 		case contractv2.Pair_Create:
-			function, _ := body.Function.(*exchange_func.ExchangePairCreate)
+			function, _ := body.Function.(*factory_func.FactoryPairCreate)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
 		}

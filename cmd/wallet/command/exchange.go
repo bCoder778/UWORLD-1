@@ -18,6 +18,7 @@ func init() {
 		CreateExchangeCmd,
 		SetExchangeAdminCmd,
 		SetExchangeFeeToCmd,
+		CreatePairCmd,
 	}
 	RootCmd.AddCommand(exchangeCmds...)
 	RootSubCmdGroups["exchange"] = exchangeCmds
@@ -356,23 +357,27 @@ func parseCPParams(args []string, nonce uint64) (*types.Transaction, error) {
 	to := args[1]
 	exchange := args[2]
 	tokenA := args[3]
-	amountADesired, err := strconv.ParseUint(args[4], 10, 64)
+	amountADesiredf, err := strconv.ParseFloat(args[4], 64)
 	if err != nil {
 		return nil, errors.New("wrong amountADesired")
 	}
-	amountAMin, err := strconv.ParseUint(args[5], 10, 64)
+	amountADesired, _ := types.NewAmount(amountADesiredf)
+	amountAMinf, err := strconv.ParseFloat(args[5], 64)
 	if err != nil {
 		return nil, errors.New("wrong amountAMin")
 	}
+	amountAMin, _ := types.NewAmount(amountAMinf)
 	tokenB := args[6]
-	amountBDesired, err := strconv.ParseUint(args[7], 10, 64)
+	amountBDesiredf, err := strconv.ParseFloat(args[7], 64)
 	if err != nil {
 		return nil, errors.New("wrong amountBDesired")
 	}
-	amountBMin, err := strconv.ParseUint(args[8], 10, 64)
+	amountBDesired, _ := types.NewAmount(amountBDesiredf)
+	amountBMinf, err := strconv.ParseFloat(args[8], 64)
 	if err != nil {
 		return nil, errors.New("wrong amountBMin")
 	}
+	amountBMin, _ := types.NewAmount(amountBMinf)
 	if len(args) > 10 {
 		nonce, err = strconv.ParseUint(args[10], 10, 64)
 		if err != nil {

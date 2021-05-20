@@ -83,8 +83,6 @@ func NewExchange(net, from, admin, feeTo string, nonce uint64, note string) (*ty
 				Admin: hasharry.StringToAddress(admin),
 				FeeTo: hasharry.StringToAddress(feeTo),
 			},
-			State:   types.Contract_Wait,
-			Message: "",
 		},
 	}
 	tx.SetHash()
@@ -110,8 +108,6 @@ func NewSetAdmin(from, exchange, admin string, nonce uint64, note string) (*type
 			Function: &exchange_func.ExchangeAdmin{
 				Address: hasharry.StringToAddress(admin),
 			},
-			State:   types.Contract_Wait,
-			Message: "",
 		},
 	}
 	tx.SetHash()
@@ -137,8 +133,6 @@ func NewSetFeeTo(from, exchange, feeTo string, nonce uint64, note string) (*type
 			Function: &exchange_func.ExchangeFeeTo{
 				Address: hasharry.StringToAddress(feeTo),
 			},
-			State:   types.Contract_Wait,
-			Message: "",
 		},
 	}
 	tx.SetHash()
@@ -175,8 +169,6 @@ func NewPairCreate(net, from, to, exchange, tokenA, tokenB string, amountADesire
 				AmountAMin:     amountAMin,
 				AmountBMin:     amountBMin,
 			},
-			State:   types.Contract_Wait,
-			Message: "",
 		},
 	}
 	tx.SetHash()

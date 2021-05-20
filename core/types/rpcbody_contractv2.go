@@ -9,6 +9,13 @@ type RpcContractV2TransactionBody struct {
 	Type         contractv2.ContractType `json:"type"`
 	FunctionType contractv2.FunctionType `json:"functiontype"`
 	Function     IRCFunction             `json:"function"`
+}
+
+type RpcContractV2BodyWithState struct {
+	Contract     string                  `json:"contract"`
+	Type         contractv2.ContractType `json:"type"`
+	FunctionType contractv2.FunctionType `json:"functiontype"`
+	Function     IRCFunction             `json:"function"`
 	State        ContractState           `json:"state"`
 	Message      string                  `json:"message"`
 }

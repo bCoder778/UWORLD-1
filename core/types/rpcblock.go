@@ -6,9 +6,9 @@ type RpcBlock struct {
 	Confirmed bool       `json:"confirmed"`
 }
 
-func TranslateBlockToRpcBlock(block *Block, confirmHeight uint64) (*RpcBlock, error) {
+func TranslateBlockToRpcBlock(block *Block, confirmHeight uint64, stateFunc getContractV2State) (*RpcBlock, error) {
 	rpcHeader := TranslateHeaderToRpcHeader(block.Header)
-	rpcBody, err := TranslateBodyToRpcBody(block.Body)
+	rpcBody, err := TranslateBodyToRpcBody(block.Body, stateFunc)
 	if err != nil {
 		return nil, err
 	}

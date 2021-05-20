@@ -44,7 +44,7 @@ func (c *ContractStorage) Close() error {
 	return c.trieDB.Close()
 }
 
-func (c *ContractStorage) GetContractState(contractAddr string) *types.Contract {
+func (c *ContractStorage) GetContract(contractAddr string) *types.Contract {
 	contract := types.NewContract()
 	bytes := c.contractTrie.Get([]byte(contractAddr))
 	err := codec.FromBytes(bytes, &contract)
@@ -54,7 +54,7 @@ func (c *ContractStorage) GetContractState(contractAddr string) *types.Contract 
 	return contract
 }
 
-func (c *ContractStorage) SetContractState(contract *types.Contract) {
+func (c *ContractStorage) SetContract(contract *types.Contract) {
 	bytes, err := codec.ToBytes(contract)
 	if err != nil {
 		return
@@ -62,12 +62,22 @@ func (c *ContractStorage) SetContractState(contract *types.Contract) {
 	c.contractTrie.Update([]byte(contract.Contract), bytes)
 }
 
-func (c *ContractStorage) GetContractV2State(contractAddr string) *contractv2.ContractV2 {
+func (c *ContractStorage) GetContractV2(contractAddr string) *contractv2.ContractV2 {
 	bytes := c.contractTrie.Get(hasharry.StringToAddress(contractAddr).Bytes())
 	contract, _ := contractv2.DecodeContractV2(bytes)
 	return contract
 }
 
-func (c *ContractStorage) SetContractV2State(contract *contractv2.ContractV2) {
+func (c *ContractStorage) SetContractV2(contract *contractv2.ContractV2) {
 	c.contractTrie.Update(contract.Address.Bytes(), contract.Bytes())
+}
+
+func (c *ContractStorage) SetContractV2State(txHash string, state *types.ContractV2State) {
+	c.contractTrie.Update([]byte(txHash), state.Bytes())
+}
+
+func (c *ContractStorage) GetContractV2State(txHash string) *types.ContractV2State {
+	bytes := c.contractTrie.Get([]byte(txHash))
+	cs, _ := types.DecodeContractV2State(bytes)
+	return cs
 }

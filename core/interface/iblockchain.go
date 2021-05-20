@@ -26,6 +26,8 @@ type IBlockChain interface {
 
 	GetTransaction(hash hasharry.Hash) (types.ITransaction, error)
 
+	GetContractState(hash hasharry.Hash) (*types.ContractV2State, error)
+
 	GetTransactionIndex(hash hasharry.Hash) (types.ITransactionIndex, error)
 
 	GetAddressVote(address hasharry.Address) uint64

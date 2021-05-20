@@ -15,6 +15,10 @@ type IContractState interface {
 
 	SetContractV2(contract *contractv2.ContractV2)
 
+	SetContractV2State(txHash string, contract *types.ContractV2State)
+
+	GetContractV2State(hash string) *types.ContractV2State
+
 	VerifyState(tx types.ITransaction) error
 
 	UpdateContract(tx types.ITransaction, blockHeight uint64)

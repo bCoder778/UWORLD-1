@@ -49,6 +49,15 @@ func (as *AccountState) GetAccountState(stateKey hasharry.Address) types.IAccoun
 	return account
 }
 
+func (as *AccountState) getAccountState(stateKey hasharry.Address) types.IAccount {
+	account := as.stateDb.GetAccountState(stateKey)
+
+	if account.IsNeedUpdate() {
+		account = as.updateAccountLocked(stateKey)
+	}
+	return account
+}
+
 func (as *AccountState) GetAccountNonce(stateKey hasharry.Address) (uint64, error) {
 	as.accountMutex.RLock()
 	defer as.accountMutex.RUnlock()
@@ -174,11 +183,11 @@ func (as *AccountState) Transfer(from, to, token hasharry.Address, amount uint64
 	as.accountMutex.Lock()
 	defer as.accountMutex.Unlock()
 
-	fromAcc := as.GetAccountState(from)
+	fromAcc := as.getAccountState(from)
 	if err := fromAcc.TransferOut(token, amount, height); err != nil {
 		return err
 	}
-	toAcc := as.GetAccountState(to)
+	toAcc := as.getAccountState(to)
 	if err := toAcc.TransferIn(token, amount, height); err != nil {
 		return err
 	}

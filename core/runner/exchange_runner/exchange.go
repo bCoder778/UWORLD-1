@@ -48,6 +48,7 @@ func (e *ExchangeRunner) Init(head *types.TransactionHead, body *types.ContractV
 			state.Message = ERR.Error()
 		}
 		e.library.SetContractV2State(head.TxHash.String(), state)
+
 	}()
 
 	contract := &contractv2.ContractV2{

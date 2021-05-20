@@ -12,10 +12,11 @@ import (
 	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 	"github.com/uworldao/UWORLD/param"
 	"github.com/uworldao/UWORLD/ut"
+	"math/big"
 	"strings"
 )
 
-type PairCreateRunner struct {
+type PairRunner struct {
 	library      *library.RunnerLibrary
 	contractBody *types.ContractV2Body
 	funBody      *exchange_func.ExchangePairCreate
@@ -27,22 +28,30 @@ type PairCreateRunner struct {
 	tx           types.ITransaction
 	txBody       types.ITransactionBody
 	sender       hasharry.Address
+	state        *types.ContractV2State
 	height       uint64
 	blockTime    uint64
 }
 
-func NewPairCreateRunner(lib *library.RunnerLibrary, tx types.ITransaction, height, blockTime uint64) *PairCreateRunner {
+func NewPairRunner(lib *library.RunnerLibrary, tx types.ITransaction, height, blockTime uint64) *PairRunner {
+	var exchange *exchange2.Exchange
+	var pair *exchange2.Pair
 	txBody := tx.GetTxBody()
 	contractBody, _ := txBody.(*types.ContractV2Body)
 	address := contractBody.Contract
 
 	funBody, _ := contractBody.Function.(*exchange_func.ExchangePairCreate)
 	exHeader := lib.GetContractV2(funBody.Exchange.String())
-	exchange, _ := exHeader.Body.(*exchange2.Exchange)
-	pairHeader := lib.GetContractV2(address.String())
-	pair, _ := pairHeader.Body.(*exchange2.Pair)
+	if exHeader != nil {
+		exchange, _ = exHeader.Body.(*exchange2.Exchange)
+	}
 
-	return &PairCreateRunner{
+	pairHeader := lib.GetContractV2(address.String())
+	if pairHeader != nil {
+		pair, _ = pairHeader.Body.(*exchange2.Pair)
+	}
+	state := &types.ContractV2State{State: types.Contract_Success}
+	return &PairRunner{
 		library:      lib,
 		contractBody: contractBody,
 		funBody:      funBody,
@@ -51,6 +60,7 @@ func NewPairCreateRunner(lib *library.RunnerLibrary, tx types.ITransaction, heig
 		pairHeader:   pairHeader,
 		pair:         pair,
 		address:      address,
+		state:        state,
 		tx:           tx,
 		height:       height,
 		sender:       tx.From(),
@@ -58,7 +68,7 @@ func NewPairCreateRunner(lib *library.RunnerLibrary, tx types.ITransaction, heig
 	}
 }
 
-func (p *PairCreateRunner) PreVerify() error {
+func (p *PairRunner) PreCreateVerify() error {
 	if p.exHeader == nil {
 		return fmt.Errorf("exchange %s is not exist", p.funBody.Exchange.String())
 	}
@@ -75,6 +85,26 @@ func (p *PairCreateRunner) PreVerify() error {
 	if address != p.address.String() {
 		return fmt.Errorf("wrong pair contract address")
 	}
+	return nil
+}
+
+func (p *PairRunner) PreAddVerify() error {
+	if p.exHeader == nil {
+		return fmt.Errorf("exchange %s is not exist", p.funBody.Exchange.String())
+	}
+	if !p.sender.IsEqual(p.exchange.Admin) {
+		return errors.New("forbidden")
+	}
+	if p.pair == nil {
+		return errors.New("pair not exist")
+	}
+	address, err := PairAddress(param.Net, p.funBody.TokenA.String(), p.funBody.TokenB.String())
+	if err != nil {
+		return fmt.Errorf("pair address error")
+	}
+	if address != p.address.String() {
+		return fmt.Errorf("wrong pair contract address")
+	}
 	reserveA, reserveB, err := p.GetReserves()
 	if err != nil {
 		return err
@@ -83,7 +113,7 @@ func (p *PairCreateRunner) PreVerify() error {
 	return err
 }
 
-func (p *PairCreateRunner) optimalAmount(reserveA, reserveB, amountADesired, amountBDesired, amountAMin, amountBMin uint64) (uint64, uint64, error) {
+func (p *PairRunner) optimalAmount(reserveA, reserveB, amountADesired, amountBDesired, amountAMin, amountBMin uint64) (uint64, uint64, error) {
 	if reserveA == 0 && reserveB == 0 {
 		return amountADesired, amountBDesired, nil
 	} else {
@@ -113,33 +143,25 @@ func (p *PairCreateRunner) optimalAmount(reserveA, reserveB, amountADesired, amo
 }
 
 // Quote given some amount of an asset and pair reserves, returns an equivalent amount of the other asset
-func (p *PairCreateRunner) quote(amountA, reserveA, reserveB uint64) (uint64, error) {
+func (p *PairRunner) quote(amountA, reserveA, reserveB uint64) (uint64, error) {
 	if amountA <= 0 {
 		return 0, errors.New("insufficient_amount")
 	}
 	if reserveA >= 0 || reserveB <= 0 {
 		return 0, errors.New("insufficient_liquidity")
 	}
-	mulAmount, ok := math.SafeMul(amountA, reserveB)
-	if !ok {
-		return 0, errors.New("overflow")
-	}
-	amountB, ok := math.SafeSub(mulAmount, reserveA)
-	if !ok {
-		return 0, errors.New("overflow")
-	}
-	return amountB, nil
+	amountB := big.NewInt(0).Div(big.NewInt(0).Mul(big.NewInt(int64(amountA)), big.NewInt(int64(reserveB))), big.NewInt(int64(reserveA)))
+	return amountB.Uint64(), nil
 }
 
-func (p *PairCreateRunner) Run() {
+func (p *PairRunner) Create() {
 	var ERR error
-	state := &types.ContractV2State{State: types.Contract_Success}
 	defer func() {
 		if ERR != nil {
-			state.State = types.Contract_Failed
-			state.Message = ERR.Error()
+			p.state.State = types.Contract_Failed
+			p.state.Message = ERR.Error()
 		}
-		p.library.SetContractV2State(p.tx.Hash().String(), state)
+		p.update()
 	}()
 
 	if p.exHeader == nil {
@@ -175,13 +197,13 @@ func (p *PairCreateRunner) Run() {
 		ERR = err
 		return
 	}
-	if err = p.Mint(reserveA, reserveB, amountA, amountB); err != nil {
+	if err = p.mint(reserveA, reserveB, amountA, amountB); err != nil {
 		ERR = err
 		return
 	}
 }
 
-func (p *PairCreateRunner) createPair() {
+func (p *PairRunner) createPair() {
 	token0, token1 := SortToken(p.funBody.TokenA.String(), p.funBody.TokenB.String())
 	p.pair = exchange2.NewPair(p.funBody.Exchange, hasharry.StringToAddress(token0), hasharry.StringToAddress(token1))
 	p.pairHeader = &contractv2.ContractV2{
@@ -190,9 +212,10 @@ func (p *PairCreateRunner) createPair() {
 		Type:       contractv2.Pair_,
 		Body:       p.pair,
 	}
+	p.exchange.AddPair(hasharry.StringToAddress(token0), hasharry.StringToAddress(token1), p.address)
 }
 
-func (p *PairCreateRunner) GetReserves() (uint64, uint64, error) {
+func (p *PairRunner) GetReserves() (uint64, uint64, error) {
 	pairContract := p.library.GetContractV2(p.address.String())
 	if pairContract != nil {
 		return 0, 0, fmt.Errorf("pair %s exist", p.address.String())
@@ -206,7 +229,7 @@ func (p *PairCreateRunner) GetReserves() (uint64, uint64, error) {
 	}
 }
 
-func (p *PairCreateRunner) Mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
+func (p *PairRunner) mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
 	// must be defined here since totalSupply can update in mintFee
 	_totalSupply := p.pair.TotalSupply
 	// 返回铸造币的手续费开关
@@ -217,58 +240,58 @@ func (p *PairCreateRunner) Mint(_reserve0, _reserve1, amount0, amount1 uint64) e
 	var liquidityValue uint64
 
 	if _totalSupply == 0 {
-		liquidity := math.NewMath(amount0).Mul(amount1).Sqrt().Sub(exchange2.MINIMUM_LIQUIDITY)
-		if liquidity.Failed {
-			return errors.New("overflow")
-		}
-		liquidityValue = liquidity.Value
+		liquidityBig := big.NewInt(0).Sub(big.NewInt(0).Sqrt(big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(amount1)))), big.NewInt(int64(exchange2.MINIMUM_LIQUIDITY)))
+		liquidityValue = liquidityBig.Uint64()
 		p.pair.Mint(hasharry.Address{}.String(), exchange2.MINIMUM_LIQUIDITY) // permanently lock the first MINIMUM_LIQUIDITY tokens
 	} else {
-		value1 := math.NewMath(amount0).Mul(_totalSupply)
-		value2 := math.NewMath(amount1).Mul(_totalSupply)
-		if value2.Failed || value1.Failed {
-			return errors.New("overflow")
-		}
-		liquidityValue = math.Min(value1.Value/_reserve0, value2.Value/_reserve1)
+		value1 := big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(_totalSupply)))
+		value2 := big.NewInt(0).Mul(big.NewInt(int64(amount1)), big.NewInt(int64(_totalSupply)))
+		liquidityValue = math.Min(value1.Uint64()/_reserve0, value2.Uint64()/_reserve1)
 	}
 	if liquidityValue <= 0 {
 		return errors.New("insufficient_liquidity_minted")
 	}
-	if err = p.pair.Mint(p.funBody.To.String(), liquidityValue); err != nil {
-		return err
-	}
-	return p.pair.Update(amount0, amount1, feeOn, p.blockTime)
+	p.pair.Mint(p.funBody.To.String(), liquidityValue)
+	p.pair.Update(amount0, amount1, feeOn, p.blockTime)
+	return nil
 }
 
 // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
-func (p *PairCreateRunner) mintFee(_reserve0, _reserve1 uint64) (bool, error) {
+func (p *PairRunner) mintFee(_reserve0, _reserve1 uint64) (bool, error) {
 	feeTo := p.exchange.FeeTo
 	// 收费地址被设置，则收费开
 	feeOn := !feeTo.IsEqual(hasharry.Address{})
 	_kLast := p.pair.KLast // gas savings
 	if feeOn {
-		if _kLast != 0 {
-			rootK := math.NewMath(_reserve0).Mul(_reserve1).Sqrt()
-			if rootK.Failed {
-				return false, errors.New("overflow")
-			}
-			rootKLast := math.NewMath(_kLast).Sqrt()
-			if rootK.Value > rootKLast.Value {
-				numerator := rootK.Sub(rootKLast.Value).Mul(p.pair.TotalSupply)
-				denominator := rootK.Mul(5).Add(rootKLast.Value)
-				if numerator.Failed || denominator.Failed {
-					return false, errors.New("overflow")
-				}
-				liquidity := numerator.Value / denominator.Value
-				if liquidity > 0 {
-					p.pair.Mint(feeTo.String(), liquidity)
+		if _kLast.Cmp(big.NewInt(0)) != 0 {
+			// roottK = Sqrt(_reserve0 * _reserve1)
+			rootK := big.NewInt(0).Sqrt(big.NewInt(0).Mul(big.NewInt(int64(_reserve0)), big.NewInt(int64(_reserve1))))
+			// rootKLast = Sqrt(_kLast)
+			rootKLast := big.NewInt(0).Sqrt(_kLast)
+			if rootK.Cmp(rootKLast) > 0 {
+				// numerator = (rootK-rootKLast)*TotalSupply
+				numerator := big.NewInt(0).Mul(big.NewInt(0).Sub(rootK, rootKLast), big.NewInt(int64(p.pair.TotalSupply)))
+				// denominator = rootK * 5 + rootKLast
+				denominator := big.NewInt(0).Add(big.NewInt(0).Mul(rootK, big.NewInt(5)), rootKLast)
+				// liquidity = numerator / denominator
+				liquidityBig := big.NewInt(0).Div(numerator, denominator)
+				if liquidityBig.Cmp(big.NewInt(0)) > 0 {
+					p.pair.Mint(feeTo.String(), liquidityBig.Uint64())
 				}
 			}
 		}
-	} else if _kLast != 0 {
-		p.pair.KLast = 0
+	} else if _kLast.Cmp(big.NewInt(0)) != 0 {
+		p.pair.KLast = big.NewInt(0)
 	}
 	return feeOn, nil
+}
+
+func (p *PairRunner) update() {
+	p.exHeader.Body = p.exchange
+	p.pairHeader.Body = p.pair
+	p.library.SetContractV2(p.exHeader)
+	p.library.SetContractV2(p.pairHeader)
+	p.library.SetContractV2State(p.tx.Hash().String(), p.state)
 }
 
 func PairAddress(net string, tokenA, tokenB string) (string, error) {

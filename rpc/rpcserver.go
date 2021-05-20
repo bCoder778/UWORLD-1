@@ -147,13 +147,20 @@ func (rs *Server) GetTransaction(ctx context.Context, req *Hash) (*Response, err
 		return NewResponse(rpctypes.RpcErrBlockChain, nil, fmt.Sprintf("%s is not exist", hash.String())), nil
 	}
 	height := index.GetHeight()
-	rpcTx, _ := coreTypes.TranslateTxToRpcTx(tx.(*coreTypes.Transaction))
+	var rpcTx *coreTypes.RpcTransaction
+	state, _ := rs.chain.GetContractState(hash)
+	if state != nil {
+		rpcTx, _ = coreTypes.TranslateContractV2TxToRpcTx(tx.(*coreTypes.Transaction), state)
+	} else {
+		rpcTx, _ = coreTypes.TranslateTxToRpcTx(tx.(*coreTypes.Transaction))
+	}
 	rsMsg := &coreTypes.RpcTransactionConfirmed{
 		TxHead:    rpcTx.TxHead,
 		TxBody:    rpcTx.TxBody,
 		Height:    height,
 		Confirmed: confirmed >= height,
 	}
+
 	bytes, _ := json.Marshal(rsMsg)
 	return NewResponse(rpctypes.RpcSuccess, bytes, ""), nil
 }
@@ -167,7 +174,7 @@ func (rs *Server) GetBlockByHash(ctx context.Context, req *Hash) (*Response, err
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrBlockChain, nil, err.Error()), nil
 	}
-	rpcBlock, _ := coreTypes.TranslateBlockToRpcBlock(block, rs.chain.GetConfirmedHeight())
+	rpcBlock, _ := coreTypes.TranslateBlockToRpcBlock(block, rs.chain.GetConfirmedHeight(), rs.chain.GetContractState)
 	bytes, err := json.Marshal(rpcBlock)
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrMarshal, nil, err.Error()), nil
@@ -181,7 +188,7 @@ func (rs *Server) GetBlockByHeight(_ context.Context, req *Height) (*Response, e
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrBlockChain, nil, err.Error()), nil
 	}
-	rpcBlock, _ := coreTypes.TranslateBlockToRpcBlock(block, rs.chain.GetConfirmedHeight())
+	rpcBlock, _ := coreTypes.TranslateBlockToRpcBlock(block, rs.chain.GetConfirmedHeight(), rs.chain.GetContractState)
 	bytes, err := json.Marshal(rpcBlock)
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrMarshal, nil, err.Error()), nil

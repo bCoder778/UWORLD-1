@@ -85,6 +85,13 @@ func DecodeContractV2(bytes []byte) (*ContractV2, error) {
 		}
 		contract.Body = ex
 		return contract, err
+	case Pair_:
+		pair, err := exchange.DecodeToPair(rlpContract.Body)
+		if err != nil {
+			return nil, err
+		}
+		contract.Body = pair
+		return contract, err
 	}
 	return nil, errors.New("decoding failure")
 }

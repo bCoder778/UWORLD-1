@@ -19,6 +19,9 @@ type ExchangePairCreate struct {
 }
 
 func (e *ExchangePairCreate) Verify() error {
+	if e.TokenA.IsEqual(e.TokenB) {
+		return errors.New("invalid pair")
+	}
 	if ok := ut.IsValidContractAddress(param.Net, e.TokenA.String()); !ok {
 		return errors.New("wrong tokenA address")
 	}

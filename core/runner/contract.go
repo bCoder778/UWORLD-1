@@ -22,6 +22,9 @@ func NewContractRunner(accountState _interface.IAccountState, contractState _int
 }
 
 func (c *ContractRunner) Verify(tx types.ITransaction) error {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	if tx.GetTxType() != types.ContractV2_ {
 		return nil
 	}
@@ -33,8 +36,8 @@ func (c *ContractRunner) Verify(tx types.ITransaction) error {
 	case contractv2.Pair_:
 		switch body.FunctionType {
 		case contractv2.Pair_Create:
-			pair := exchange_runner.NewPairCreateRunner(c.library, tx, 0, 0)
-			return pair.PreVerify()
+			pair := exchange_runner.NewPairRunner(c.library, tx, 0, 0)
+			return pair.PreCreateVerify()
 		}
 	}
 	return nil
@@ -59,10 +62,9 @@ func (c *ContractRunner) RunContract(tx types.ITransaction, blockHeight uint64, 
 	case contractv2.Pair_:
 		switch body.FunctionType {
 		case contractv2.Pair_Create:
-			pairCreate := exchange_runner.NewPairCreateRunner(c.library, tx, blockHeight, blockTime)
-			pairCreate.Run()
+			pairRunner := exchange_runner.NewPairRunner(c.library, tx, blockHeight, blockTime)
+			pairRunner.Create()
 		}
 	}
-	//tx.SetTxBody(t)
 	return nil
 }

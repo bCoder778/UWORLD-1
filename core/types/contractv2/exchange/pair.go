@@ -1,10 +1,9 @@
 package exchange
 
 import (
-	"errors"
 	"github.com/uworldao/UWORLD/common/encode/rlp"
 	"github.com/uworldao/UWORLD/common/hasharry"
-	"github.com/uworldao/UWORLD/common/math"
+	"math/big"
 )
 
 const MINIMUM_LIQUIDITY = 1e3
@@ -18,7 +17,7 @@ type Pair struct {
 	BlockTimestampLast   uint32
 	Price0CumulativeLast uint64
 	Price1CumulativeLast uint64
-	KLast                uint64
+	KLast                *big.Int
 	TotalSupply          uint64
 	*liquidityList
 }
@@ -33,7 +32,7 @@ func NewPair(exchange, token0, token1 hasharry.Address) *Pair {
 		BlockTimestampLast:   0,
 		Price0CumulativeLast: 0,
 		Price1CumulativeLast: 0,
-		KLast:                0,
+		KLast:                big.NewInt(0),
 		TotalSupply:          0,
 		liquidityList:        &liquidityList{},
 	}
@@ -52,18 +51,12 @@ func (p *Pair) GetReserves() (uint64, uint64, uint32) {
 	return p.Reserve0, p.Reserve1, p.BlockTimestampLast
 }
 
-func (p *Pair) Mint(address string, number uint64) error {
-	value := math.NewMath(p.TotalSupply).Add(number)
-	if value.Failed {
-		return errors.New("overflow")
-	}
-	p.TotalSupply = value.Value
+func (p *Pair) Mint(address string, number uint64) {
+	p.TotalSupply = p.TotalSupply + number
 	p.liquidityList.mint(address, number)
-	return nil
 }
 
-func (p *Pair) Update(amount0, amount1 uint64, feeOn bool, blockTime uint64) error {
-
+func (p *Pair) Update(amount0, amount1 uint64, feeOn bool, blockTime uint64) {
 	blockTimestamp := uint32(blockTime%2 ^ 32)
 	timeElapsed := blockTimestamp - p.BlockTimestampLast // overflow is desired
 	if timeElapsed > 0 && p.Reserve0 != 0 && p.Reserve1 != 0 {
@@ -74,19 +67,15 @@ func (p *Pair) Update(amount0, amount1 uint64, feeOn bool, blockTime uint64) err
 	}
 	p.BlockTimestampLast = blockTimestamp
 
-	value0 := math.NewMath(p.Reserve0).Add(amount0)
-	value1 := math.NewMath(p.Reserve1).Add(amount1)
-	kLast := value0.Mul(value1.Value)
-	if value0.Failed || value1.Failed || kLast.Failed {
-		return errors.New("overflow")
-	}
+	value0 := p.Reserve0 + amount0
+	value1 := p.Reserve1 + amount1
+	kLast := big.NewInt(0).Mul(big.NewInt(int64(value0)), big.NewInt(int64(value1)))
 
 	if feeOn {
-		p.KLast = kLast.Value
+		p.KLast = kLast
 	}
-	p.Reserve0 = value0.Value
-	p.Reserve1 = value1.Value
-	return nil
+	p.Reserve0 = value0
+	p.Reserve1 = value1
 }
 
 func DecodeToPair(bytes []byte) (*Pair, error) {

@@ -160,19 +160,47 @@ func TranslateTxToRpcTx(tx *Transaction) (*RpcTransaction, error) {
 	return rpcTx, nil
 }
 
-func translateContractV2ToRpcContractV2(body *ContractV2Body) (*RpcContractV2TransactionBody, error) {
-	contractV2Body := &RpcContractV2TransactionBody{
-		Contract:     body.Contract.String(),
-		Type:         body.Type,
-		FunctionType: body.FunctionType,
+func TranslateContractV2TxToRpcTx(tx *Transaction, state *ContractV2State) (*RpcTransaction, error) {
+	var err error
+	rpcTx := &RpcTransaction{
+		TxHead: &RpcTransactionHead{
+			TxHash: tx.Hash().String(),
+			TxType: tx.GetTxType(),
+			From:   addressToString(tx.From()),
+			Nonce:  tx.GetNonce(),
+			Fees:   tx.GetFees(),
+			Time:   tx.GetTime(),
+			Note:   tx.GetNote(),
+			SignScript: &RpcSignScript{
+				Signature: hex.EncodeToString(tx.GetSignScript().Signature),
+				PubKey:    hex.EncodeToString(tx.GetSignScript().PubKey),
+			}},
+		TxBody: nil,
 	}
+	switch tx.GetTxType() {
+	case ContractV2_:
+		body, ok := tx.GetTxBody().(*ContractV2Body)
+		if !ok {
+			return nil, errors.New("wrong transaction body")
+		}
+		rpcTx.TxBody, err = translateToRpcContractV2WithState(body, state)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return rpcTx, nil
+}
+
+func rpcFunction(body *ContractV2Body) (IRCFunction, error) {
+	var function IRCFunction
 	switch body.FunctionType {
 	case contractv2.Exchange_Init_:
 		funcBody, ok := body.Function.(*exchange_func.ExchangeInitBody)
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		contractV2Body.Function = &RpcExchangeInitBody{
+		function = &RpcExchangeInitBody{
 			Admin: funcBody.Admin.String(),
 			FeeTo: funcBody.FeeTo.String(),
 		}
@@ -181,7 +209,7 @@ func translateContractV2ToRpcContractV2(body *ContractV2Body) (*RpcContractV2Tra
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		contractV2Body.Function = &RpcExchangeSetAdminBody{
+		function = &RpcExchangeSetAdminBody{
 			Address: funcBody.Address.String(),
 		}
 	case contractv2.Exchange_SetFeeTo_:
@@ -189,7 +217,7 @@ func translateContractV2ToRpcContractV2(body *ContractV2Body) (*RpcContractV2Tra
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		contractV2Body.Function = &RpcExchangeSetFeeToBody{
+		function = &RpcExchangeSetFeeToBody{
 			Address: funcBody.Address.String(),
 		}
 	case contractv2.Pair_Create:
@@ -197,7 +225,7 @@ func translateContractV2ToRpcContractV2(body *ContractV2Body) (*RpcContractV2Tra
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		contractV2Body.Function = &RpcExchangePairCreate{
+		function = &RpcExchangePairCreate{
 			Exchange:       funcBody.Exchange.String(),
 			TokenA:         funcBody.TokenA.String(),
 			TokenB:         funcBody.TokenB.String(),
@@ -208,7 +236,42 @@ func translateContractV2ToRpcContractV2(body *ContractV2Body) (*RpcContractV2Tra
 			AmountBMin:     Amount(funcBody.AmountBMin).ToCoin(),
 		}
 	}
-	return contractV2Body, nil
+	return function, nil
+}
+
+func translateToRpcContractV2WithState(body *ContractV2Body, contractState *ContractV2State) (*RpcContractV2BodyWithState, error) {
+	var state = Contract_Wait
+	var message string
+	if contractState != nil {
+		state = contractState.State
+		message = contractState.Message
+	}
+
+	funcBody, err := rpcFunction(body)
+	if err != nil {
+		return nil, err
+	}
+	return &RpcContractV2BodyWithState{
+		Contract:     body.Contract.String(),
+		Type:         body.Type,
+		FunctionType: body.FunctionType,
+		Function:     funcBody,
+		State:        state,
+		Message:      message,
+	}, nil
+}
+
+func translateContractV2ToRpcContractV2(body *ContractV2Body) (*RpcContractV2TransactionBody, error) {
+	funcBody, err := rpcFunction(body)
+	if err != nil {
+		return nil, err
+	}
+	return &RpcContractV2TransactionBody{
+		Contract:     body.Contract.String(),
+		Type:         body.Type,
+		FunctionType: body.FunctionType,
+		Function:     funcBody,
+	}, nil
 }
 
 func TranslateRpcSignScriptToSignScript(rpcSignScript *RpcSignScript) (*SignScript, error) {

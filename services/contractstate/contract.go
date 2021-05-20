@@ -46,7 +46,7 @@ func (c *ContractState) GetContract(contractAddr string) *types.Contract {
 	c.contractMutex.RLock()
 	defer c.contractMutex.RUnlock()
 
-	contract := c.contractDb.GetContractState(contractAddr)
+	contract := c.contractDb.GetContract(contractAddr)
 	return contract
 }
 
@@ -54,14 +54,14 @@ func (c *ContractState) SetContract(contract *types.Contract) {
 	c.contractMutex.RLock()
 	defer c.contractMutex.RUnlock()
 
-	c.contractDb.SetContractState(contract)
+	c.contractDb.SetContract(contract)
 }
 
 func (c *ContractState) GetContractV2(contractAddr string) *contractv2.ContractV2 {
 	c.contractMutex.RLock()
 	defer c.contractMutex.RUnlock()
 
-	contract := c.contractDb.GetContractV2State(contractAddr)
+	contract := c.contractDb.GetContractV2(contractAddr)
 	return contract
 }
 
@@ -69,7 +69,22 @@ func (c *ContractState) SetContractV2(contract *contractv2.ContractV2) {
 	c.contractMutex.RLock()
 	defer c.contractMutex.RUnlock()
 
-	c.contractDb.SetContractV2State(contract)
+	c.contractDb.SetContractV2(contract)
+}
+
+func (c *ContractState) GetContractV2State(txHash string) *types.ContractV2State {
+	c.contractMutex.RLock()
+	defer c.contractMutex.RUnlock()
+
+	state := c.contractDb.GetContractV2State(txHash)
+	return state
+}
+
+func (c *ContractState) SetContractV2State(txHash string, contract *types.ContractV2State) {
+	c.contractMutex.RLock()
+	defer c.contractMutex.RUnlock()
+
+	c.contractDb.SetContractV2State(txHash, contract)
 }
 
 func (c *ContractState) UpdateConfirmedHeight(height uint64) {
@@ -84,7 +99,7 @@ func (c *ContractState) VerifyState(tx types.ITransaction) error {
 	switch tx.GetTxType() {
 	case types.Contract_:
 		contractAddr := tx.GetTxBody().GetContract()
-		contract := c.contractDb.GetContractState(contractAddr.String())
+		contract := c.contractDb.GetContract(contractAddr.String())
 		if contract != nil {
 			return contract.Verify(tx)
 		}
@@ -109,7 +124,7 @@ func (c *ContractState) UpdateContract(tx types.ITransaction, blockHeight uint64
 		Receiver: txBody.ToAddress().String(),
 	}
 	contractAddr := txBody.GetContract()
-	contract := c.contractDb.GetContractState(contractAddr.String())
+	contract := c.contractDb.GetContract(contractAddr.String())
 	if contract != nil {
 		contract.AddContract(contractRecord)
 	} else {
@@ -124,7 +139,7 @@ func (c *ContractState) UpdateContract(tx types.ITransaction, blockHeight uint64
 			},
 		}
 	}
-	c.contractDb.SetContractState(contract)
+	c.contractDb.SetContract(contract)
 }
 
 func (c *ContractState) Close() error {

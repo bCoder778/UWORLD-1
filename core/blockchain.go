@@ -166,6 +166,14 @@ func (blc *BlockChain) GetTransaction(hash hasharry.Hash) (types.ITransaction, e
 	return rlpTx.TranslateToTransaction(), nil
 }
 
+func (blc *BlockChain) GetContractState(hash hasharry.Hash) (*types.ContractV2State, error) {
+	state := blc.contractState.GetContractV2State(hash.String())
+	if state == nil {
+		return nil, fmt.Errorf("%s contract state not exist", hash.String())
+	}
+	return state, nil
+}
+
 func (blc *BlockChain) GetTransactionIndex(hash hasharry.Hash) (types.ITransactionIndex, error) {
 	txIndex, err := blc.storage.GetTxLocation(hash)
 	if err != nil {

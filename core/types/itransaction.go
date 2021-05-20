@@ -25,7 +25,6 @@ type ITransaction interface {
 	GetSignScript() *SignScript
 	GetTxHead() *TransactionHead
 	GetTxBody() ITransactionBody
-	SetTxBody(ITransactionBody)
 }
 
 type ITransactionBody interface {

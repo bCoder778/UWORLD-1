@@ -8,22 +8,22 @@ import (
 	"strings"
 )
 
-type pair struct {
-	key     string
-	address hasharry.Address
+type PairAddress struct {
+	Key     string
+	Address hasharry.Address
 }
 
 type RlpExchange struct {
 	FeeTo    hasharry.Address
 	Admin    hasharry.Address
-	AllPairs []pair
+	AllPairs []PairAddress
 }
 
 type Exchange struct {
 	FeeTo    hasharry.Address
 	Admin    hasharry.Address
 	Pair     map[hasharry.Address]map[hasharry.Address]hasharry.Address
-	AllPairs []pair
+	AllPairs []PairAddress
 }
 
 func NewExchange(admin, feeTo hasharry.Address) *Exchange {
@@ -31,7 +31,7 @@ func NewExchange(admin, feeTo hasharry.Address) *Exchange {
 		FeeTo:    admin,
 		Admin:    feeTo,
 		Pair:     make(map[hasharry.Address]map[hasharry.Address]hasharry.Address),
-		AllPairs: make([]pair, 0),
+		AllPairs: make([]PairAddress, 0),
 	}
 }
 
@@ -58,6 +58,23 @@ func (e *Exchange) VerifySetter(sender hasharry.Address) error {
 	return nil
 }
 
+func (e *Exchange) Exist(token0, token1 hasharry.Address) bool {
+	token1Map, ok := e.Pair[token0]
+	if ok {
+		_, ok := token1Map[token1]
+		return ok
+	}
+	return false
+}
+
+func (e *Exchange) AddPair(token0, token1, address hasharry.Address) {
+	e.Pair[token0] = map[hasharry.Address]hasharry.Address{token1: address}
+	e.AllPairs = append(e.AllPairs, PairAddress{
+		Key:     pairKey(token0, token1),
+		Address: address,
+	})
+}
+
 func (e *Exchange) Bytes() []byte {
 	elpEx := &RlpExchange{
 		FeeTo:    e.FeeTo,
@@ -76,20 +93,14 @@ func DecodeToExchange(bytes []byte) (*Exchange, error) {
 	ex := NewExchange(rlpEx.Admin, rlpEx.FeeTo)
 	ex.AllPairs = rlpEx.AllPairs
 	for _, pair := range rlpEx.AllPairs {
-		tokenB, token2 := parseKey(pair.key)
-		ex.Pair[tokenB] = map[hasharry.Address]hasharry.Address{token2: pair.address}
+		tokenB, token2 := parseKey(pair.Key)
+		ex.Pair[tokenB] = map[hasharry.Address]hasharry.Address{token2: pair.Address}
 	}
 	return ex, nil
 }
 
-func pairKey(tokenB hasharry.Address, token2 hasharry.Address) string {
-	str1 := tokenB.String()
-	str2 := token2.String()
-	if strings.Compare(str1, str2) > 0 {
-		return fmt.Sprintf("%s-%s", str1, str2)
-	} else {
-		return fmt.Sprintf("%s-%s", str2, str1)
-	}
+func pairKey(token0 hasharry.Address, token1 hasharry.Address) string {
+	return fmt.Sprintf("%s-%s", token0.String(), token1.String())
 }
 
 func parseKey(key string) (hasharry.Address, hasharry.Address) {

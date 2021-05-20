@@ -2,6 +2,7 @@ package types
 
 import (
 	"errors"
+	"github.com/uworldao/UWORLD/common/encode/rlp"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
 )
@@ -15,11 +16,6 @@ type ContractV2Body struct {
 	Type         contractv2.ContractType
 	FunctionType contractv2.FunctionType
 	Function     IFunction
-}
-
-type ContractV2State struct {
-	State   ContractState
-	Message string
 }
 
 func (c *ContractV2Body) ToAddress() hasharry.Address {
@@ -89,7 +85,23 @@ func (c *ContractV2Body) checkType() error {
 type ContractState uint8
 
 const (
-	Contract_Wait    ContractState = 0
-	Contract_Success               = 1
-	Contract_Failed                = 2
+	Contract_Success ContractState = 0
+	Contract_Failed  ContractState = 1
+	Contract_Wait    ContractState = 2
 )
+
+type ContractV2State struct {
+	State   ContractState
+	Message string
+}
+
+func (c *ContractV2State) Bytes() []byte {
+	bytes, _ := rlp.EncodeToBytes(c)
+	return bytes
+}
+
+func DecodeContractV2State(bytes []byte) (*ContractV2State, error) {
+	var c *ContractV2State
+	err := rlp.DecodeBytes(bytes, &c)
+	return c, err
+}

@@ -1,4 +1,4 @@
-package factory_runner
+package exchange_runner
 
 import (
 	"errors"
@@ -8,8 +8,8 @@ import (
 	"github.com/uworldao/UWORLD/core/runner/library"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	factory2 "github.com/uworldao/UWORLD/core/types/contractv2/factory"
-	"github.com/uworldao/UWORLD/core/types/functionbody/factory_func"
+	exchange2 "github.com/uworldao/UWORLD/core/types/contractv2/exchange"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 	"github.com/uworldao/UWORLD/param"
 	"github.com/uworldao/UWORLD/ut"
 	"math/big"
@@ -19,11 +19,11 @@ import (
 type PairRunner struct {
 	library      *library.RunnerLibrary
 	contractBody *types.ContractV2Body
-	funBody      *factory_func.FactoryPairCreate
+	funBody      *exchange_func.ExchangePairCreate
 	exHeader     *contractv2.ContractV2
-	factory      *factory2.Factory
+	exchange     *exchange2.Exchange
 	pairHeader   *contractv2.ContractV2
-	pair         *factory2.Pair
+	pair         *exchange2.Pair
 	address      hasharry.Address
 	tx           types.ITransaction
 	txBody       types.ITransactionBody
@@ -34,21 +34,21 @@ type PairRunner struct {
 }
 
 func NewPairRunner(lib *library.RunnerLibrary, tx types.ITransaction, height, blockTime uint64) *PairRunner {
-	var factory *factory2.Factory
-	var pair *factory2.Pair
+	var exchange *exchange2.Exchange
+	var pair *exchange2.Pair
 	txBody := tx.GetTxBody()
 	contractBody, _ := txBody.(*types.ContractV2Body)
 	address := contractBody.Contract
 
-	funBody, _ := contractBody.Function.(*factory_func.FactoryPairCreate)
-	exHeader := lib.GetContractV2(funBody.Factory.String())
+	funBody, _ := contractBody.Function.(*exchange_func.ExchangePairCreate)
+	exHeader := lib.GetContractV2(funBody.Exchange.String())
 	if exHeader != nil {
-		factory, _ = exHeader.Body.(*factory2.Factory)
+		exchange, _ = exHeader.Body.(*exchange2.Exchange)
 	}
 
 	pairHeader := lib.GetContractV2(address.String())
 	if pairHeader != nil {
-		pair, _ = pairHeader.Body.(*factory2.Pair)
+		pair, _ = pairHeader.Body.(*exchange2.Pair)
 	}
 	state := &types.ContractV2State{State: types.Contract_Success}
 	return &PairRunner{
@@ -56,7 +56,7 @@ func NewPairRunner(lib *library.RunnerLibrary, tx types.ITransaction, height, bl
 		contractBody: contractBody,
 		funBody:      funBody,
 		exHeader:     exHeader,
-		factory:      factory,
+		exchange:     exchange,
 		pairHeader:   pairHeader,
 		pair:         pair,
 		address:      address,
@@ -70,9 +70,9 @@ func NewPairRunner(lib *library.RunnerLibrary, tx types.ITransaction, height, bl
 
 func (p *PairRunner) PreCreateVerify() error {
 	if p.exHeader == nil {
-		return fmt.Errorf("factory %s is not exist", p.funBody.Factory.String())
+		return fmt.Errorf("exchange %s is not exist", p.funBody.Exchange.String())
 	}
-	if !p.sender.IsEqual(p.factory.Admin) {
+	if !p.sender.IsEqual(p.exchange.Admin) {
 		return errors.New("forbidden")
 	}
 	if p.pair != nil {
@@ -90,9 +90,9 @@ func (p *PairRunner) PreCreateVerify() error {
 
 func (p *PairRunner) PreAddVerify() error {
 	if p.exHeader == nil {
-		return fmt.Errorf("factory %s is not exist", p.funBody.Factory.String())
+		return fmt.Errorf("exchange %s is not exist", p.funBody.Exchange.String())
 	}
-	if !p.sender.IsEqual(p.factory.Admin) {
+	if !p.sender.IsEqual(p.exchange.Admin) {
 		return errors.New("forbidden")
 	}
 	if p.pair == nil {
@@ -165,10 +165,10 @@ func (p *PairRunner) Create() {
 	}()
 
 	if p.exHeader == nil {
-		ERR = fmt.Errorf("factory %s is not exist", p.funBody.Factory.String())
+		ERR = fmt.Errorf("exchange %s is not exist", p.funBody.Exchange.String())
 		return
 	}
-	if !p.sender.IsEqual(p.factory.Admin) {
+	if !p.sender.IsEqual(p.exchange.Admin) {
 		ERR = errors.New("forbidden")
 		return
 	}
@@ -205,14 +205,14 @@ func (p *PairRunner) Create() {
 
 func (p *PairRunner) createPair() {
 	token0, token1 := SortToken(p.funBody.TokenA.String(), p.funBody.TokenB.String())
-	p.pair = factory2.NewPair(p.funBody.Factory, hasharry.StringToAddress(token0), hasharry.StringToAddress(token1))
+	p.pair = exchange2.NewPair(p.funBody.Exchange, hasharry.StringToAddress(token0), hasharry.StringToAddress(token1))
 	p.pairHeader = &contractv2.ContractV2{
 		Address:    p.address,
 		CreateHash: p.tx.Hash(),
 		Type:       contractv2.Pair_,
 		Body:       p.pair,
 	}
-	p.factory.AddPair(hasharry.StringToAddress(token0), hasharry.StringToAddress(token1), p.address)
+	p.exchange.AddPair(hasharry.StringToAddress(token0), hasharry.StringToAddress(token1), p.address)
 }
 
 func (p *PairRunner) GetReserves() (uint64, uint64, error) {
@@ -240,9 +240,9 @@ func (p *PairRunner) mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
 	var liquidityValue uint64
 
 	if _totalSupply == 0 {
-		liquidityBig := big.NewInt(0).Sub(big.NewInt(0).Sqrt(big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(amount1)))), big.NewInt(int64(factory2.MINIMUM_LIQUIDITY)))
+		liquidityBig := big.NewInt(0).Sub(big.NewInt(0).Sqrt(big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(amount1)))), big.NewInt(int64(exchange2.MINIMUM_LIQUIDITY)))
 		liquidityValue = liquidityBig.Uint64()
-		p.pair.Mint(hasharry.Address{}.String(), factory2.MINIMUM_LIQUIDITY) // permanently lock the first MINIMUM_LIQUIDITY tokens
+		p.pair.Mint(hasharry.Address{}.String(), exchange2.MINIMUM_LIQUIDITY) // permanently lock the first MINIMUM_LIQUIDITY tokens
 	} else {
 		value1 := big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(_totalSupply)))
 		value2 := big.NewInt(0).Mul(big.NewInt(int64(amount1)), big.NewInt(int64(_totalSupply)))
@@ -258,7 +258,7 @@ func (p *PairRunner) mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
 
 // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
 func (p *PairRunner) mintFee(_reserve0, _reserve1 uint64) (bool, error) {
-	feeTo := p.factory.FeeTo
+	feeTo := p.exchange.FeeTo
 	// 收费地址被设置，则收费开
 	feeOn := !feeTo.IsEqual(hasharry.Address{})
 	_kLast := p.pair.KLast // gas savings
@@ -287,7 +287,7 @@ func (p *PairRunner) mintFee(_reserve0, _reserve1 uint64) (bool, error) {
 }
 
 func (p *PairRunner) update() {
-	p.exHeader.Body = p.factory
+	p.exHeader.Body = p.exchange
 	p.pairHeader.Body = p.pair
 	p.library.SetContractV2(p.exHeader)
 	p.library.SetContractV2(p.pairHeader)

@@ -1,4 +1,4 @@
-package factory_func
+package exchange_func
 
 import (
 	"errors"
@@ -7,12 +7,12 @@ import (
 	"github.com/uworldao/UWORLD/ut"
 )
 
-type FactoryInitBody struct {
+type ExchangeInitBody struct {
 	Admin hasharry.Address
 	FeeTo hasharry.Address
 }
 
-func (e *FactoryInitBody) Verify() error {
+func (e *ExchangeInitBody) Verify() error {
 	if ok := ut.CheckUWDAddress(param.Net, e.Admin.String()); !ok {
 		return errors.New("wrong admin address")
 	}
@@ -25,22 +25,22 @@ func (e *FactoryInitBody) Verify() error {
 	return nil
 }
 
-type FactoryAdmin struct {
+type ExchangeAdmin struct {
 	Address hasharry.Address
 }
 
-func (e *FactoryAdmin) Verify() error {
+func (e *ExchangeAdmin) Verify() error {
 	if ok := ut.CheckUWDAddress(param.Net, e.Address.String()); !ok {
 		return errors.New("wrong admin address")
 	}
 	return nil
 }
 
-type FactoryFeeTo struct {
+type ExchangeFeeTo struct {
 	Address hasharry.Address
 }
 
-func (e *FactoryFeeTo) Verify() error {
+func (e *ExchangeFeeTo) Verify() error {
 	if ok := ut.CheckUWDAddress(param.Net, e.Address.String()); !ok {
 		return errors.New("wrong feeTo address")
 	}

@@ -1,4 +1,4 @@
-package factory_func
+package exchange_func
 
 import (
 	"errors"
@@ -7,8 +7,8 @@ import (
 	"github.com/uworldao/UWORLD/ut"
 )
 
-type FactoryPairCreate struct {
-	Factory        hasharry.Address
+type ExchangePairCreate struct {
+	Exchange       hasharry.Address
 	TokenA         hasharry.Address
 	TokenB         hasharry.Address
 	To             hasharry.Address
@@ -18,7 +18,7 @@ type FactoryPairCreate struct {
 	AmountBMin     uint64
 }
 
-func (e *FactoryPairCreate) Verify() error {
+func (e *ExchangePairCreate) Verify() error {
 	if e.TokenA.IsEqual(e.TokenB) {
 		return errors.New("invalid pair")
 	}
@@ -28,8 +28,8 @@ func (e *FactoryPairCreate) Verify() error {
 	if ok := ut.IsValidContractAddress(param.Net, e.TokenB.String()); !ok {
 		return errors.New("wrong tokenB address")
 	}
-	if ok := ut.IsValidContractAddress(param.Net, e.Factory.String()); !ok {
-		return errors.New("wrong factory address")
+	if ok := ut.IsValidContractAddress(param.Net, e.Exchange.String()); !ok {
+		return errors.New("wrong exchange address")
 	}
 	if ok := ut.CheckUWDAddress(param.Net, e.To.String()); !ok {
 		return errors.New("wrong To address")

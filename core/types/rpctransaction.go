@@ -6,7 +6,7 @@ import (
 	"errors"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	"github.com/uworldao/UWORLD/core/types/functionbody/factory_func"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 )
 
 type IRpcTransactionBody interface {
@@ -195,38 +195,38 @@ func TranslateContractV2TxToRpcTx(tx *Transaction, state *ContractV2State) (*Rpc
 func rpcFunction(body *ContractV2Body) (IRCFunction, error) {
 	var function IRCFunction
 	switch body.FunctionType {
-	case contractv2.Factory_Init_:
-		funcBody, ok := body.Function.(*factory_func.FactoryInitBody)
+	case contractv2.Exchange_Init_:
+		funcBody, ok := body.Function.(*exchange_func.ExchangeInitBody)
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		function = &RpcFactoryInitBody{
+		function = &RpcExchangeInitBody{
 			Admin: funcBody.Admin.String(),
 			FeeTo: funcBody.FeeTo.String(),
 		}
-	case contractv2.Factory_SetAdmin_:
-		funcBody, ok := body.Function.(*factory_func.FactoryAdmin)
+	case contractv2.Exchange_SetAdmin_:
+		funcBody, ok := body.Function.(*exchange_func.ExchangeAdmin)
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		function = &RpcFactorySetAdminBody{
+		function = &RpcExchangeSetAdminBody{
 			Address: funcBody.Address.String(),
 		}
-	case contractv2.Factory_SetFeeTo_:
-		funcBody, ok := body.Function.(*factory_func.FactoryFeeTo)
+	case contractv2.Exchange_SetFeeTo_:
+		funcBody, ok := body.Function.(*exchange_func.ExchangeFeeTo)
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		function = &RpcFactorySetFeeToBody{
+		function = &RpcExchangeSetFeeToBody{
 			Address: funcBody.Address.String(),
 		}
 	case contractv2.Pair_Create:
-		funcBody, ok := body.Function.(*factory_func.FactoryPairCreate)
+		funcBody, ok := body.Function.(*exchange_func.ExchangePairCreate)
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		function = &RpcFactoryPairCreate{
-			Factory:        funcBody.Factory.String(),
+		function = &RpcExchangePairCreate{
+			Exchange:       funcBody.Exchange.String(),
 			TokenA:         funcBody.TokenA.String(),
 			TokenB:         funcBody.TokenB.String(),
 			To:             funcBody.To.String(),
@@ -337,12 +337,12 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 		return nil, err
 	}
 	switch body.FunctionType {
-	case contractv2.Factory_Init_:
+	case contractv2.Exchange_Init_:
 		bytes, err := json.Marshal(body.Function)
 		if err != nil {
 			return nil, err
 		}
-		init := &RpcFactoryInitBody{
+		init := &RpcExchangeInitBody{
 			Admin: "",
 			FeeTo: "",
 		}
@@ -354,17 +354,17 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Contract:     hasharry.StringToAddress(body.Contract),
 			Type:         body.Type,
 			FunctionType: body.FunctionType,
-			Function: &factory_func.FactoryInitBody{
+			Function: &exchange_func.ExchangeInitBody{
 				Admin: hasharry.StringToAddress(init.Admin),
 				FeeTo: hasharry.StringToAddress(init.FeeTo),
 			},
 		}, nil
-	case contractv2.Factory_SetAdmin_:
+	case contractv2.Exchange_SetAdmin_:
 		bytes, err := json.Marshal(body.Function)
 		if err != nil {
 			return nil, err
 		}
-		setBody := &RpcFactorySetAdminBody{
+		setBody := &RpcExchangeSetAdminBody{
 			Address: "",
 		}
 		err = json.Unmarshal(bytes, setBody)
@@ -375,16 +375,16 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Contract:     hasharry.StringToAddress(body.Contract),
 			Type:         body.Type,
 			FunctionType: body.FunctionType,
-			Function: &factory_func.FactoryAdmin{
+			Function: &exchange_func.ExchangeAdmin{
 				Address: hasharry.StringToAddress(setBody.Address),
 			},
 		}, nil
-	case contractv2.Factory_SetFeeTo_:
+	case contractv2.Exchange_SetFeeTo_:
 		bytes, err := json.Marshal(body.Function)
 		if err != nil {
 			return nil, err
 		}
-		setBody := &RpcFactorySetFeeToBody{
+		setBody := &RpcExchangeSetFeeToBody{
 			Address: "",
 		}
 		err = json.Unmarshal(bytes, setBody)
@@ -395,7 +395,7 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Contract:     hasharry.StringToAddress(body.Contract),
 			Type:         body.Type,
 			FunctionType: body.FunctionType,
-			Function: &factory_func.FactoryFeeTo{
+			Function: &exchange_func.ExchangeFeeTo{
 				Address: hasharry.StringToAddress(setBody.Address),
 			},
 		}, nil
@@ -404,7 +404,7 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 		if err != nil {
 			return nil, err
 		}
-		createBody := &RpcFactoryPairCreate{}
+		createBody := &RpcExchangePairCreate{}
 		err = json.Unmarshal(bytes, createBody)
 		if err != nil {
 			return nil, err
@@ -417,8 +417,8 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*ContractV2B
 			Contract:     hasharry.StringToAddress(body.Contract),
 			Type:         body.Type,
 			FunctionType: body.FunctionType,
-			Function: &factory_func.FactoryPairCreate{
-				Factory:        hasharry.StringToAddress(createBody.Factory),
+			Function: &exchange_func.ExchangePairCreate{
+				Exchange:       hasharry.StringToAddress(createBody.Exchange),
 				TokenA:         hasharry.StringToAddress(createBody.TokenA),
 				TokenB:         hasharry.StringToAddress(createBody.TokenB),
 				To:             hasharry.StringToAddress(createBody.To),

@@ -2,10 +2,10 @@ package transaction
 
 import (
 	"github.com/uworldao/UWORLD/common/hasharry"
-	"github.com/uworldao/UWORLD/core/runner/factory_runner"
+	"github.com/uworldao/UWORLD/core/runner/exchange_runner"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	"github.com/uworldao/UWORLD/core/types/functionbody/factory_func"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 	"github.com/uworldao/UWORLD/param"
 	"time"
 )
@@ -58,8 +58,8 @@ func NewContract(from, to, contract string, note string, amount, nonce uint64, n
 	return tx
 }
 
-func NewFactory(net, from, admin, feeTo string, nonce uint64, note string) (*types.Transaction, error) {
-	contract, err := factory_runner.FactoryAddress(net, from, nonce)
+func NewExchange(net, from, admin, feeTo string, nonce uint64, note string) (*types.Transaction, error) {
+	contract, err := exchange_runner.ExchangeAddress(net, from, nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -77,9 +77,9 @@ func NewFactory(net, from, admin, feeTo string, nonce uint64, note string) (*typ
 		},
 		TxBody: &types.ContractV2Body{
 			Contract:     hasharry.StringToAddress(contract),
-			Type:         contractv2.Factory_,
-			FunctionType: contractv2.Factory_Init_,
-			Function: &factory_func.FactoryInitBody{
+			Type:         contractv2.Exchange_,
+			FunctionType: contractv2.Exchange_Init_,
+			Function: &exchange_func.ExchangeInitBody{
 				Admin: hasharry.StringToAddress(admin),
 				FeeTo: hasharry.StringToAddress(feeTo),
 			},
@@ -89,7 +89,7 @@ func NewFactory(net, from, admin, feeTo string, nonce uint64, note string) (*typ
 	return tx, nil
 }
 
-func NewSetAdmin(from, factory, admin string, nonce uint64, note string) (*types.Transaction, error) {
+func NewSetAdmin(from, exchange, admin string, nonce uint64, note string) (*types.Transaction, error) {
 	tx := &types.Transaction{
 		TxHead: &types.TransactionHead{
 			TxType:     types.ContractV2_,
@@ -102,10 +102,10 @@ func NewSetAdmin(from, factory, admin string, nonce uint64, note string) (*types
 			Fees:       param.Fees,
 		},
 		TxBody: &types.ContractV2Body{
-			Contract:     hasharry.StringToAddress(factory),
-			Type:         contractv2.Factory_,
-			FunctionType: contractv2.Factory_SetAdmin_,
-			Function: &factory_func.FactoryAdmin{
+			Contract:     hasharry.StringToAddress(exchange),
+			Type:         contractv2.Exchange_,
+			FunctionType: contractv2.Exchange_SetAdmin_,
+			Function: &exchange_func.ExchangeAdmin{
 				Address: hasharry.StringToAddress(admin),
 			},
 		},
@@ -114,7 +114,7 @@ func NewSetAdmin(from, factory, admin string, nonce uint64, note string) (*types
 	return tx, nil
 }
 
-func NewSetFeeTo(from, factory, feeTo string, nonce uint64, note string) (*types.Transaction, error) {
+func NewSetFeeTo(from, exchange, feeTo string, nonce uint64, note string) (*types.Transaction, error) {
 	tx := &types.Transaction{
 		TxHead: &types.TransactionHead{
 			TxType:     types.ContractV2_,
@@ -127,10 +127,10 @@ func NewSetFeeTo(from, factory, feeTo string, nonce uint64, note string) (*types
 			Fees:       param.Fees,
 		},
 		TxBody: &types.ContractV2Body{
-			Contract:     hasharry.StringToAddress(factory),
-			Type:         contractv2.Factory_,
-			FunctionType: contractv2.Factory_SetFeeTo_,
-			Function: &factory_func.FactoryFeeTo{
+			Contract:     hasharry.StringToAddress(exchange),
+			Type:         contractv2.Exchange_,
+			FunctionType: contractv2.Exchange_SetFeeTo_,
+			Function: &exchange_func.ExchangeFeeTo{
 				Address: hasharry.StringToAddress(feeTo),
 			},
 		},
@@ -139,8 +139,8 @@ func NewSetFeeTo(from, factory, feeTo string, nonce uint64, note string) (*types
 	return tx, nil
 }
 
-func NewPairCreate(net, from, to, factory, tokenA, tokenB string, amountADesired, amountBDesired, amountAMin, amountBMin, nonce uint64, note string) (*types.Transaction, error) {
-	contract, err := factory_runner.PairAddress(net, tokenA, tokenB)
+func NewPairCreate(net, from, to, exchange, tokenA, tokenB string, amountADesired, amountBDesired, amountAMin, amountBMin, nonce uint64, note string) (*types.Transaction, error) {
+	contract, err := exchange_runner.PairAddress(net, tokenA, tokenB)
 	if err != nil {
 		return nil, err
 	}
@@ -159,8 +159,8 @@ func NewPairCreate(net, from, to, factory, tokenA, tokenB string, amountADesired
 			Contract:     hasharry.StringToAddress(contract),
 			Type:         contractv2.Pair_,
 			FunctionType: contractv2.Pair_Create,
-			Function: &factory_func.FactoryPairCreate{
-				Factory:        hasharry.StringToAddress(factory),
+			Function: &exchange_func.ExchangePairCreate{
+				Exchange:       hasharry.StringToAddress(exchange),
 				TokenA:         hasharry.StringToAddress(tokenA),
 				TokenB:         hasharry.StringToAddress(tokenB),
 				To:             hasharry.StringToAddress(to),

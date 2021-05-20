@@ -4,7 +4,7 @@ import (
 	"github.com/uworldao/UWORLD/common/encode/rlp"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	"github.com/uworldao/UWORLD/core/types/functionbody/factory_func"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 )
 
 type RlpTransaction struct {
@@ -47,20 +47,20 @@ func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
 		var rlpCt *RlpContractBody
 		rlp.DecodeBytes(rt.TxBody, &rlpCt)
 		switch rlpCt.FunctionType {
-		case contractv2.Factory_Init_:
-			var init *factory_func.FactoryInitBody
+		case contractv2.Exchange_Init_:
+			var init *exchange_func.ExchangeInitBody
 			rlp.DecodeBytes(rlpCt.Function, &init)
 			ct.Function = init
-		case contractv2.Factory_SetAdmin_:
-			var set *factory_func.FactoryAdmin
+		case contractv2.Exchange_SetAdmin_:
+			var set *exchange_func.ExchangeAdmin
 			rlp.DecodeBytes(rlpCt.Function, &set)
 			ct.Function = set
-		case contractv2.Factory_SetFeeTo_:
-			var set *factory_func.FactoryFeeTo
+		case contractv2.Exchange_SetFeeTo_:
+			var set *exchange_func.ExchangeFeeTo
 			rlp.DecodeBytes(rlpCt.Function, &set)
 			ct.Function = set
 		case contractv2.Pair_Create:
-			var create *factory_func.FactoryPairCreate
+			var create *exchange_func.ExchangePairCreate
 			rlp.DecodeBytes(rlpCt.Function, &create)
 			ct.Function = create
 		}

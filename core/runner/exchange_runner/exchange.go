@@ -1,4 +1,4 @@
-package factory_runner
+package exchange_runner
 
 import (
 	"fmt"
@@ -7,39 +7,39 @@ import (
 	"github.com/uworldao/UWORLD/core/runner/library"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
-	"github.com/uworldao/UWORLD/core/types/contractv2/factory"
-	"github.com/uworldao/UWORLD/core/types/functionbody/factory_func"
+	"github.com/uworldao/UWORLD/core/types/contractv2/exchange"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 	"github.com/uworldao/UWORLD/ut"
 )
 
-type FactoryRunner struct {
+type ExchangeRunner struct {
 	library *library.RunnerLibrary
 }
 
-func NewFactoryRunner(lib *library.RunnerLibrary) *FactoryRunner {
-	return &FactoryRunner{library: lib}
+func NewExchangeRunner(lib *library.RunnerLibrary) *ExchangeRunner {
+	return &ExchangeRunner{library: lib}
 }
 
-func (e *FactoryRunner) PreVerify(from hasharry.Address, contract hasharry.Address, funcType contractv2.FunctionType) error {
+func (e *ExchangeRunner) PreVerify(from hasharry.Address, contract hasharry.Address, funcType contractv2.FunctionType) error {
 	conV2 := e.library.GetContractV2(contract.String())
 	switch funcType {
-	case contractv2.Factory_Init_:
+	case contractv2.Exchange_Init_:
 		if conV2 != nil {
-			return fmt.Errorf("factory %s already exist", contract.String())
+			return fmt.Errorf("exchange %s already exist", contract.String())
 		}
-	case contractv2.Factory_SetAdmin_:
+	case contractv2.Exchange_SetAdmin_:
 		fallthrough
-	case contractv2.Factory_SetFeeTo_:
+	case contractv2.Exchange_SetFeeTo_:
 		if conV2 == nil {
-			return fmt.Errorf("factorys %s is not exist", contract.String())
+			return fmt.Errorf("exchanges %s is not exist", contract.String())
 		}
-		ex := conV2.Body.(*factory.Factory)
+		ex := conV2.Body.(*exchange.Exchange)
 		return ex.VerifySetter(from)
 	}
 	return nil
 }
 
-func (e *FactoryRunner) Init(head *types.TransactionHead, body *types.ContractV2Body, height uint64) {
+func (e *ExchangeRunner) Init(head *types.TransactionHead, body *types.ContractV2Body, height uint64) {
 	var ERR error
 	state := &types.ContractV2State{State: types.Contract_Success}
 	defer func() {
@@ -59,15 +59,15 @@ func (e *FactoryRunner) Init(head *types.TransactionHead, body *types.ContractV2
 	}
 	contractV2 := e.library.GetContractV2(contract.Address.String())
 	if contractV2 != nil {
-		ERR = fmt.Errorf("factory %s already exist", contract.Address.String())
+		ERR = fmt.Errorf("exchange %s already exist", contract.Address.String())
 		return
 	}
-	initBody := body.Function.(*factory_func.FactoryInitBody)
-	contract.Body = factory.NewFactory(initBody.Admin, initBody.FeeTo)
+	initBody := body.Function.(*exchange_func.ExchangeInitBody)
+	contract.Body = exchange.NewExchange(initBody.Admin, initBody.FeeTo)
 	e.library.SetContractV2(contract)
 }
 
-func (e *FactoryRunner) SetAdmin(head *types.TransactionHead, body *types.ContractV2Body, height uint64) {
+func (e *ExchangeRunner) SetAdmin(head *types.TransactionHead, body *types.ContractV2Body, height uint64) {
 	var ERR error
 	state := &types.ContractV2State{State: types.Contract_Success}
 	defer func() {
@@ -80,11 +80,11 @@ func (e *FactoryRunner) SetAdmin(head *types.TransactionHead, body *types.Contra
 
 	ctrV2 := e.library.GetContractV2(body.Contract.String())
 	if ctrV2 == nil {
-		ERR = fmt.Errorf("factorys %s is not exist", body.Contract.String())
+		ERR = fmt.Errorf("exchanges %s is not exist", body.Contract.String())
 		return
 	}
-	funcBody, _ := body.Function.(*factory_func.FactoryAdmin)
-	ex, _ := ctrV2.Body.(*factory.Factory)
+	funcBody, _ := body.Function.(*exchange_func.ExchangeAdmin)
+	ex, _ := ctrV2.Body.(*exchange.Exchange)
 	if err := ex.SetAdmin(funcBody.Address, head.From); err != nil {
 		ERR = err
 		return
@@ -93,7 +93,7 @@ func (e *FactoryRunner) SetAdmin(head *types.TransactionHead, body *types.Contra
 	e.library.SetContractV2(ctrV2)
 }
 
-func (e *FactoryRunner) SetFeeTo(head *types.TransactionHead, body *types.ContractV2Body, height uint64) {
+func (e *ExchangeRunner) SetFeeTo(head *types.TransactionHead, body *types.ContractV2Body, height uint64) {
 	var ERR error
 	state := &types.ContractV2State{State: types.Contract_Success}
 	defer func() {
@@ -106,11 +106,11 @@ func (e *FactoryRunner) SetFeeTo(head *types.TransactionHead, body *types.Contra
 
 	ctrV2 := e.library.GetContractV2(body.Contract.String())
 	if ctrV2 == nil {
-		ERR = fmt.Errorf("factorys %s is not exist", body.Contract.String())
+		ERR = fmt.Errorf("exchanges %s is not exist", body.Contract.String())
 		return
 	}
-	funcBody, _ := body.Function.(*factory_func.FactoryFeeTo)
-	ex, _ := ctrV2.Body.(*factory.Factory)
+	funcBody, _ := body.Function.(*exchange_func.ExchangeFeeTo)
+	ex, _ := ctrV2.Body.(*exchange.Exchange)
 	if err := ex.SetFeeTo(funcBody.Address, head.From); err != nil {
 		ERR = err
 		return
@@ -119,7 +119,7 @@ func (e *FactoryRunner) SetFeeTo(head *types.TransactionHead, body *types.Contra
 	e.library.SetContractV2(ctrV2)
 }
 
-func FactoryAddress(net, from string, nonce uint64) (string, error) {
+func ExchangeAddress(net, from string, nonce uint64) (string, error) {
 	bytes := make([]byte, 0)
 	nonceBytes := codec.Uint64toBytes(nonce)
 	bytes = append(hasharry.StringToAddress(from).Bytes(), nonceBytes...)

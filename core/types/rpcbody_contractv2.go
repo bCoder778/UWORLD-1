@@ -23,21 +23,21 @@ type RpcContractV2BodyWithState struct {
 type IRCFunction interface {
 }
 
-type RpcFactoryInitBody struct {
+type RpcExchangeInitBody struct {
 	Admin string `json:"admin"`
 	FeeTo string `json:"feeto"`
 }
 
-type RpcFactorySetAdminBody struct {
+type RpcExchangeSetAdminBody struct {
 	Address string `json:"address"`
 }
 
-type RpcFactorySetFeeToBody struct {
+type RpcExchangeSetFeeToBody struct {
 	Address string `json:"address"`
 }
 
-type RpcFactoryPairCreate struct {
-	Factory        string  `json:"factory"`
+type RpcExchangePairCreate struct {
+	Exchange       string  `json:"exchange"`
 	TokenA         string  `json:"tokenA"`
 	TokenB         string  `json:"tokenB"`
 	To             string  `json:"to"`

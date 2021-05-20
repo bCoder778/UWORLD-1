@@ -14,31 +14,31 @@ import (
 )
 
 func init() {
-	factoryCmds := []*cobra.Command{
-		CreateFactoryCmd,
-		SetFactoryAdminCmd,
-		SetFactoryFeeToCmd,
+	exchangeCmds := []*cobra.Command{
+		CreateExchangeCmd,
+		SetExchangeAdminCmd,
+		SetExchangeFeeToCmd,
 		CreatePairCmd,
 	}
-	RootCmd.AddCommand(factoryCmds...)
-	RootSubCmdGroups["factory"] = factoryCmds
+	RootCmd.AddCommand(exchangeCmds...)
+	RootSubCmdGroups["exchange"] = exchangeCmds
 
 }
 
-var CreateFactoryCmd = &cobra.Command{
-	Use:     "CreateFactory {from} {admin} {feeTo} {password} {nonce}; Create a decentralized factory;",
-	Aliases: []string{"CreateFactory", "createfactory", "cf", "CF"},
-	Short:   "CreateFactory {from} {admin} {feeTo} {password} {nonce}; Create a decentralized factory;",
+var CreateExchangeCmd = &cobra.Command{
+	Use:     "CreateExchange {from} {admin} {feeTo} {password} {nonce}; Create a decentralized exchange;",
+	Aliases: []string{"CreateExchange", "createexchange", "ce", "CE"},
+	Short:   "CreateExchange {from} {admin} {feeTo} {password} {nonce}; Create a decentralized exchange;",
 	Example: `
-	CreateFactory 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 123456
+	CreateExchange 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 123456
 		OR
-	CreateFactory 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 123456 1
+	CreateExchange 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE 123456 1
 	`,
 	Args: cobra.MinimumNArgs(3),
-	Run:  CreateFactory,
+	Run:  CreateExchange,
 }
 
-func CreateFactory(cmd *cobra.Command, args []string) {
+func CreateExchange(cmd *cobra.Command, args []string) {
 	var passwd []byte
 	var err error
 	if len(args) > 3 {
@@ -104,27 +104,27 @@ func parseCEParams(args []string, nonce uint64) (*types.Transaction, error) {
 			return nil, errors.New("wrong nonce")
 		}
 	}
-	tx, err := transaction.NewFactory(Net, from.String(), admin, feeTo, nonce, "")
+	tx, err := transaction.NewExchange(Net, from.String(), admin, feeTo, nonce, "")
 	if err != nil {
 		return nil, err
 	}
 	return tx, nil
 }
 
-var SetFactoryAdminCmd = &cobra.Command{
-	Use:     "SetFactoryAdmin {from} {factory} {admin} {password} {nonce}; Set factory feeTo setter;",
-	Aliases: []string{"setfactoryadmin", "sfa", "SFA"},
-	Short:   "SetFactoryAdmin {from} {factory} {admin} {password} {nonce}; Set factory feeTo setter;",
+var SetExchangeAdminCmd = &cobra.Command{
+	Use:     "SetExchangeAdmin {from} {exchange} {admin} {password} {nonce}; Set exchange feeTo setter;",
+	Aliases: []string{"setexchangeadmin", "sea", "SEA"},
+	Short:   "SetExchangeAdmin {from} {exchange} {admin} {password} {nonce}; Set exchange feeTo setter;",
 	Example: `
-	SetFactoryAdmin UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw 123456
+	SetExchangeAdmin UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw 123456
 		OR
-	SetFactoryAdmin UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw 123456 1
+	SetExchangeAdmin UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw 123456 1
 	`,
 	Args: cobra.MinimumNArgs(3),
-	Run:  SetFactoryAdmin,
+	Run:  SetExchangeAdmin,
 }
 
-func SetFactoryAdmin(cmd *cobra.Command, args []string) {
+func SetExchangeAdmin(cmd *cobra.Command, args []string) {
 	var passwd []byte
 	var err error
 	if len(args) > 3 {
@@ -182,7 +182,7 @@ func SetFactoryAdmin(cmd *cobra.Command, args []string) {
 func parseSEFTSParams(args []string, nonce uint64) (*types.Transaction, error) {
 	var err error
 	from := args[0]
-	factory := args[1]
+	exchange := args[1]
 	admin := args[2]
 	if len(args) > 4 {
 		nonce, err = strconv.ParseUint(args[4], 10, 64)
@@ -190,27 +190,27 @@ func parseSEFTSParams(args []string, nonce uint64) (*types.Transaction, error) {
 			return nil, errors.New("wrong nonce")
 		}
 	}
-	tx, err := transaction.NewSetAdmin(from, factory, admin, nonce, "")
+	tx, err := transaction.NewSetAdmin(from, exchange, admin, nonce, "")
 	if err != nil {
 		return nil, err
 	}
 	return tx, nil
 }
 
-var SetFactoryFeeToCmd = &cobra.Command{
-	Use:     "SetFactoryFeeTo {from} {factory} {feeTo} {password} {nonce}; Set factory feeTo;",
-	Aliases: []string{"setfactoryfeeto", "sfft", "SFFT"},
-	Short:   "SetFactoryFeeTo {from} {factory} {feeTo} {password} {nonce}; Set factory feeTo;",
+var SetExchangeFeeToCmd = &cobra.Command{
+	Use:     "SetExchangeFeeTo {from} {exchange} {feeTo} {password} {nonce}; Set exchange feeTo;",
+	Aliases: []string{"setexchangefeeto", "seft", "SEFT"},
+	Short:   "SetExchangeFeeTo {from} {exchange} {feeTo} {password} {nonce}; Set exchange feeTo;",
 	Example: `
-	SetFactoryFeeTo UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw 123456
+	SetExchangeFeeTo UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw 123456
 		OR
-	SetFactoryFeeTo UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw 123456 1
+	SetExchangeFeeTo UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw 123456 1
 	`,
 	Args: cobra.MinimumNArgs(3),
-	Run:  SetFactoryFeeTo,
+	Run:  SetExchangeFeeTo,
 }
 
-func SetFactoryFeeTo(cmd *cobra.Command, args []string) {
+func SetExchangeFeeTo(cmd *cobra.Command, args []string) {
 	var passwd []byte
 	var err error
 	if len(args) > 3 {
@@ -268,7 +268,7 @@ func SetFactoryFeeTo(cmd *cobra.Command, args []string) {
 func parseSEFTParams(args []string, nonce uint64) (*types.Transaction, error) {
 	var err error
 	from := args[0]
-	factory := args[1]
+	exchange := args[1]
 	feeTo := args[2]
 	if len(args) > 4 {
 		nonce, err = strconv.ParseUint(args[4], 10, 64)
@@ -276,7 +276,7 @@ func parseSEFTParams(args []string, nonce uint64) (*types.Transaction, error) {
 			return nil, errors.New("wrong nonce")
 		}
 	}
-	tx, err := transaction.NewSetFeeTo(from, factory, feeTo, nonce, "")
+	tx, err := transaction.NewSetFeeTo(from, exchange, feeTo, nonce, "")
 	if err != nil {
 		return nil, err
 	}
@@ -284,9 +284,9 @@ func parseSEFTParams(args []string, nonce uint64) (*types.Transaction, error) {
 }
 
 var CreatePairCmd = &cobra.Command{
-	Use:     "CreatePair {from} {to} {factory} {tokenA} {amountADesired} {amountAmin} {tokenB} {amountBDesired} {amountBMin} {password} {nonce};Create a pair contract;",
+	Use:     "CreatePair {from} {to} {exchange} {tokenA} {amountADesired} {amountAmin} {tokenB} {amountBDesired} {amountBMin} {password} {nonce};Create a pair contract;",
 	Aliases: []string{"createpair", "cp", "CP"},
-	Short:   "CreatePair {from} {to} {factory} {tokenA} {amountADesired} {amountAmin} {tokenB} {amountBDesired} {amountBMin} {password} {nonce}; Create a pair contract;",
+	Short:   "CreatePair {from} {to} {exchange} {tokenA} {amountADesired} {amountAmin} {tokenB} {amountBDesired} {amountBMin} {password} {nonce}; Create a pair contract;",
 	Example: `
 	CreatePair UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWTXEqvUWik48uAHcJXZiyyWMy4GLtpGuttL 100 90 UWD 1 0.9 123456
 		OR
@@ -355,7 +355,7 @@ func parseCPParams(args []string, nonce uint64) (*types.Transaction, error) {
 	var err error
 	from := args[0]
 	to := args[1]
-	factory := args[2]
+	exchange := args[2]
 	tokenA := args[3]
 	amountADesiredf, err := strconv.ParseFloat(args[4], 64)
 	if err != nil {
@@ -384,7 +384,7 @@ func parseCPParams(args []string, nonce uint64) (*types.Transaction, error) {
 			return nil, errors.New("wrong nonce")
 		}
 	}
-	tx, err := transaction.NewPairCreate(Net, from, to, factory, tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, nonce, "")
+	tx, err := transaction.NewPairCreate(Net, from, to, exchange, tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, nonce, "")
 	if err != nil {
 		return nil, err
 	}

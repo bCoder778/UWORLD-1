@@ -17,12 +17,12 @@ const (
 )
 
 const (
-	Exchange_Init_     FunctionType = 0
-	Exchange_SetAdmin_              = 1
-	Exchange_SetFeeTo_              = 2
-	Exchange_ExactIn                = 3
-	Exchange_ExactOut               = 4
-	Pair_Create                     = 5
+	Exchange_Init     FunctionType = 0
+	Exchange_SetAdmin              = 1
+	Exchange_SetFeeTo              = 2
+	Exchange_ExactIn               = 3
+	Exchange_ExactOut              = 4
+	Pair_Create                    = 5
 )
 
 type ContractV2 struct {
@@ -46,11 +46,11 @@ func (c *ContractV2) Bytes() []byte {
 func (c *ContractV2) Verify(function FunctionType, sender hasharry.Address) error {
 	ex, _ := c.Body.(*exchange.Exchange)
 	switch function {
-	case Exchange_Init_:
+	case Exchange_Init:
 		return fmt.Errorf("exchange %s already exist", c.Address.String())
-	case Exchange_SetAdmin_:
+	case Exchange_SetAdmin:
 		return ex.VerifySetter(sender)
-	case Exchange_SetFeeTo_:
+	case Exchange_SetFeeTo:
 		return ex.VerifySetter(sender)
 	}
 

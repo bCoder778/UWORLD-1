@@ -56,26 +56,23 @@ func (p *Pair) Mint(address string, number uint64) {
 	p.liquidityList.mint(address, number)
 }
 
-func (p *Pair) Update(amount0, amount1 uint64, feeOn bool, blockTime uint64) {
+func (p *Pair) Update(balance0, balance1, _reserve0, _reserve1, blockTime uint64) {
 	blockTimestamp := uint32(blockTime%2 ^ 32)
 	timeElapsed := blockTimestamp - p.BlockTimestampLast // overflow is desired
-	if timeElapsed > 0 && p.Reserve0 != 0 && p.Reserve1 != 0 {
+	if timeElapsed > 0 && _reserve0 != 0 && _reserve1 != 0 {
 		// * never overflows, and + overflow is desired
 		// 这两个值用于价格预言机
-		p.Price0CumulativeLast += p.Reserve1 / p.Reserve0 * uint64(timeElapsed)
-		p.Price1CumulativeLast += p.Reserve0 / p.Reserve1 * uint64(timeElapsed)
+		p.Price0CumulativeLast += _reserve1 / _reserve0 * uint64(timeElapsed)
+		p.Price1CumulativeLast += _reserve0 / _reserve1 * uint64(timeElapsed)
 	}
 	p.BlockTimestampLast = blockTimestamp
 
-	value0 := p.Reserve0 + amount0
-	value1 := p.Reserve1 + amount1
-	kLast := big.NewInt(0).Mul(big.NewInt(int64(value0)), big.NewInt(int64(value1)))
+	p.Reserve0 = balance0
+	p.Reserve1 = balance1
+}
 
-	if feeOn {
-		p.KLast = kLast
-	}
-	p.Reserve0 = value0
-	p.Reserve1 = value1
+func (p *Pair) UpdateKLast() {
+	p.KLast = big.NewInt(0).Mul(big.NewInt(int64(p.Reserve0)), big.NewInt(int64(p.Reserve1)))
 }
 
 func DecodeToPair(bytes []byte) (*Pair, error) {

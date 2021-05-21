@@ -67,6 +67,15 @@ func (e *Exchange) Exist(token0, token1 hasharry.Address) bool {
 	return false
 }
 
+func (e *Exchange) PairAddress(token0, token1 hasharry.Address) hasharry.Address {
+	token1Map, ok := e.Pair[token0]
+	if ok {
+		address, _ := token1Map[token1]
+		return address
+	}
+	return hasharry.Address{}
+}
+
 func (e *Exchange) AddPair(token0, token1, address hasharry.Address) {
 	e.Pair[token0] = map[hasharry.Address]hasharry.Address{token1: address}
 	e.AllPairs = append(e.AllPairs, PairAddress{

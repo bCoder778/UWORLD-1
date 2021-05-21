@@ -11,46 +11,46 @@ type IFunction interface {
 	Verify() error
 }
 
-type ContractV2Body struct {
+type TxContractV2Body struct {
 	Contract     hasharry.Address
 	Type         contractv2.ContractType
 	FunctionType contractv2.FunctionType
 	Function     IFunction
 }
 
-func (c *ContractV2Body) ToAddress() hasharry.Address {
+func (c *TxContractV2Body) ToAddress() hasharry.Address {
 	return hasharry.Address{}
 }
 
-func (c *ContractV2Body) GetAmount() uint64 {
+func (c *TxContractV2Body) GetAmount() uint64 {
 	return 0
 }
 
-func (c *ContractV2Body) GetContract() hasharry.Address {
+func (c *TxContractV2Body) GetContract() hasharry.Address {
 	return c.Contract
 }
 
-func (c *ContractV2Body) GetName() string {
+func (c *TxContractV2Body) GetName() string {
 	return ""
 }
 
-func (c *ContractV2Body) GetAbbr() string {
+func (c *TxContractV2Body) GetAbbr() string {
 	return ""
 }
 
-func (c *ContractV2Body) GetIncreaseSwitch() bool {
+func (c *TxContractV2Body) GetIncreaseSwitch() bool {
 	return false
 }
 
-func (c *ContractV2Body) GetDescription() string {
+func (c *TxContractV2Body) GetDescription() string {
 	return ""
 }
 
-func (c *ContractV2Body) GetPeerId() []byte {
+func (c *TxContractV2Body) GetPeerId() []byte {
 	return nil
 }
 
-func (c *ContractV2Body) VerifyBody(address hasharry.Address) error {
+func (c *TxContractV2Body) VerifyBody(address hasharry.Address) error {
 	if err := c.checkType(); err != nil {
 		return err
 	}
@@ -60,15 +60,19 @@ func (c *ContractV2Body) VerifyBody(address hasharry.Address) error {
 	return c.Function.Verify()
 }
 
-func (c *ContractV2Body) checkType() error {
+func (c *TxContractV2Body) checkType() error {
 	switch c.Type {
 	case contractv2.Exchange_:
 		switch c.FunctionType {
-		case contractv2.Exchange_Init_:
+		case contractv2.Exchange_Init:
 			return nil
-		case contractv2.Exchange_SetAdmin_:
+		case contractv2.Exchange_SetAdmin:
 			return nil
-		case contractv2.Exchange_SetFeeTo_:
+		case contractv2.Exchange_SetFeeTo:
+			return nil
+		case contractv2.Exchange_ExactIn:
+			return nil
+		case contractv2.Exchange_ExactOut:
 			return nil
 		}
 		return errors.New("invalid contract function type")

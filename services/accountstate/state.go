@@ -196,6 +196,21 @@ func (as *AccountState) Transfer(from, to, token hasharry.Address, amount uint64
 	return nil
 }
 
+func (as *AccountState) PreTransfer(from, to, token hasharry.Address, amount uint64, height uint64) error {
+	as.accountMutex.RLock()
+	defer as.accountMutex.RUnlock()
+
+	fromAcc := as.getAccountState(from)
+	if err := fromAcc.TransferOut(token, amount, height); err != nil {
+		return err
+	}
+	toAcc := as.getAccountState(to)
+	if err := toAcc.TransferIn(token, amount, height); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (as *AccountState) StateTrieCommit() (hasharry.Hash, error) {
 	return as.stateDb.Commit()
 }

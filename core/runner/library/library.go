@@ -1,10 +1,13 @@
 package library
 
 import (
+	"errors"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
+	"github.com/uworldao/UWORLD/core/types/contractv2/exchange"
+	"strings"
 )
 
 type RunnerLibrary struct {
@@ -36,6 +39,63 @@ func (r RunnerLibrary) SetContractV2State(txHash string, state *types.ContractV2
 	r.cState.SetContractV2State(txHash, state)
 }
 
-func (r *RunnerLibrary) Transfer(sender, to, token hasharry.Address, amount, height uint64) error {
-	return r.aState.Transfer(sender, to, token, amount, height)
+func (r RunnerLibrary) GetBalance(address hasharry.Address, token hasharry.Address) uint64 {
+	account := r.aState.GetAccountState(address)
+	return account.GetBalance(token.String())
+}
+
+func (r *RunnerLibrary) PreTransfer(info *TransferInfo) error {
+	return r.aState.PreTransfer(info.From, info.To, info.Token, info.Amount, info.Height)
+}
+
+func (r *RunnerLibrary) Transfer(info *TransferInfo) error {
+	return r.aState.Transfer(info.From, info.To, info.Token, info.Amount, info.Height)
+}
+
+func (r *RunnerLibrary) GetPair(pairAddress hasharry.Address) (*exchange.Pair, error) {
+	pairContract := r.GetContractV2(pairAddress.String())
+	if pairContract != nil {
+		return nil, errors.New("%s pair does not exist")
+	}
+	return pairContract.Body.(*exchange.Pair), nil
+}
+
+func (r *RunnerLibrary) GetExchange(exchangeAddress hasharry.Address) (*exchange.Exchange, error) {
+	exContract := r.GetContractV2(exchangeAddress.String())
+	if exContract != nil {
+		return nil, errors.New("%s exchange does not exist")
+	}
+	return exContract.Body.(*exchange.Exchange), nil
+}
+
+func (r *RunnerLibrary) GetReservesByPairAddress(pairAddress, tokenA, tokenB hasharry.Address) (uint64, uint64) {
+	pairContract := r.GetContractV2(pairAddress.String())
+	pair := pairContract.Body.(*exchange.Pair)
+	return r.GetReservesByPair(pair, tokenA, tokenB)
+}
+
+func (r *RunnerLibrary) GetReservesByPair(pair *exchange.Pair, tokenA, tokenB hasharry.Address) (uint64, uint64) {
+	reserve0, reserve1, _ := pair.GetReserves()
+	token0, _ := SortToken(tokenA, tokenB)
+	if tokenA.IsEqual(token0) {
+		return reserve0, reserve1
+	} else {
+		return reserve1, reserve0
+	}
+}
+
+func SortToken(tokenA, tokenB hasharry.Address) (hasharry.Address, hasharry.Address) {
+	if strings.Compare(tokenA.String(), tokenB.String()) > 0 {
+		return tokenA, tokenB
+	} else {
+		return tokenB, tokenA
+	}
+}
+
+type TransferInfo struct {
+	From   hasharry.Address
+	To     hasharry.Address
+	Token  hasharry.Address
+	Amount uint64
+	Height uint64
 }

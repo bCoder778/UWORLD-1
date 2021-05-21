@@ -43,22 +43,30 @@ func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
 			TxBody: ct,
 		}
 	case ContractV2_:
-		var ct = &ContractV2Body{}
+		var ct = &TxContractV2Body{}
 		var rlpCt *RlpContractBody
 		rlp.DecodeBytes(rt.TxBody, &rlpCt)
 		switch rlpCt.FunctionType {
-		case contractv2.Exchange_Init_:
+		case contractv2.Exchange_Init:
 			var init *exchange_func.ExchangeInitBody
 			rlp.DecodeBytes(rlpCt.Function, &init)
 			ct.Function = init
-		case contractv2.Exchange_SetAdmin_:
+		case contractv2.Exchange_SetAdmin:
 			var set *exchange_func.ExchangeAdmin
 			rlp.DecodeBytes(rlpCt.Function, &set)
 			ct.Function = set
-		case contractv2.Exchange_SetFeeTo_:
+		case contractv2.Exchange_SetFeeTo:
 			var set *exchange_func.ExchangeFeeTo
 			rlp.DecodeBytes(rlpCt.Function, &set)
 			ct.Function = set
+		case contractv2.Exchange_ExactIn:
+			var in *exchange_func.ExactIn
+			rlp.DecodeBytes(rlpCt.Function, &in)
+			ct.Function = in
+		case contractv2.Exchange_ExactOut:
+			var out *exchange_func.ExactOut
+			rlp.DecodeBytes(rlpCt.Function, &out)
+			ct.Function = out
 		case contractv2.Pair_Create:
 			var create *exchange_func.ExchangePairCreate
 			rlp.DecodeBytes(rlpCt.Function, &create)

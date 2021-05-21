@@ -21,18 +21,30 @@ func NewContractRunner(accountState _interface.IAccountState, contractState _int
 	}
 }
 
-func (c *ContractRunner) Verify(tx types.ITransaction) error {
+func (c *ContractRunner) Verify(tx types.ITransaction, lastHeight uint64) error {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	if tx.GetTxType() != types.ContractV2_ {
 		return nil
 	}
-	body, _ := tx.GetTxBody().(*types.ContractV2Body)
+	body, _ := tx.GetTxBody().(*types.TxContractV2Body)
 	switch body.Type {
 	case contractv2.Exchange_:
-		ex := exchange_runner.NewExchangeRunner(c.library)
-		return ex.PreVerify(tx.From(), body.Contract, body.FunctionType)
+		ex := exchange_runner.NewExchangeRunner(c.library, tx)
+		switch body.FunctionType {
+		case contractv2.Exchange_Init:
+			return ex.PreInitVerify()
+		case contractv2.Exchange_SetAdmin:
+			return ex.PreSetVerify()
+		case contractv2.Exchange_SetFeeTo:
+			return ex.PreSetVerify()
+		case contractv2.Exchange_ExactIn:
+			return ex.PreExactInVerify(lastHeight)
+		case contractv2.Exchange_ExactOut:
+			return ex.PreExactOutVerify(lastHeight)
+		}
+
 	case contractv2.Pair_:
 		switch body.FunctionType {
 		case contractv2.Pair_Create:
@@ -47,17 +59,21 @@ func (c *ContractRunner) RunContract(tx types.ITransaction, blockHeight uint64, 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	body, _ := tx.GetTxBody().(*types.ContractV2Body)
+	body, _ := tx.GetTxBody().(*types.TxContractV2Body)
 	switch body.Type {
 	case contractv2.Exchange_:
-		ex := exchange_runner.NewExchangeRunner(c.library)
+		ex := exchange_runner.NewExchangeRunner(c.library, tx)
 		switch body.FunctionType {
-		case contractv2.Exchange_Init_:
-			ex.Init(tx.GetTxHead(), body, blockHeight)
-		case contractv2.Exchange_SetAdmin_:
-			ex.SetAdmin(tx.GetTxHead(), body, blockHeight)
-		case contractv2.Exchange_SetFeeTo_:
-			ex.SetFeeTo(tx.GetTxHead(), body, blockHeight)
+		case contractv2.Exchange_Init:
+			ex.Init()
+		case contractv2.Exchange_SetAdmin:
+			ex.SetAdmin()
+		case contractv2.Exchange_SetFeeTo:
+			ex.SetFeeTo()
+		case contractv2.Exchange_ExactIn:
+			ex.SwapExactIn(blockHeight, blockTime)
+		case contractv2.Exchange_ExactOut:
+			ex.SwapExactOut(blockHeight, blockTime)
 		}
 	case contractv2.Pair_:
 		switch body.FunctionType {

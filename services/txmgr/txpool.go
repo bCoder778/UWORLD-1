@@ -26,6 +26,8 @@ const maxPoolTx = 50000
 
 const txPoolStorage = "txpool"
 
+type lastHeightFunc func() uint64
+
 // Manage transactions not packaged into blocks
 type TxPool struct {
 	accountState  _interface.IAccountState
@@ -41,27 +43,29 @@ type TxPool struct {
 	removeTxsCh   chan types.Transactions
 	stateUpdateCh chan struct{}
 	stop          chan bool
+	lastHeightFunc
 }
 
 func NewTxPool(config *config.Config, accountState _interface.IAccountState, contractState _interface.IContractState, consensus consensus.IConsensus,
 	peerManager p2p.IPeerManager, network blkmgr.Network, runner *runner2.ContractRunner,
 	recTx chan types.ITransaction, stateUpdateCh chan struct{}, removeTxsCh chan types.Transactions,
-	newStream blkmgr.ICreateStream) *TxPool {
+	newStream blkmgr.ICreateStream, lastHeightFunc lastHeightFunc) *TxPool {
 
 	return &TxPool{
-		accountState:  accountState,
-		contractState: contractState,
-		consensus:     consensus,
-		runner:        runner,
-		txs:           list.NewTxList(accountState, pooldb.NewTxPoolStorage(config.DataDir+"/"+txPoolStorage)),
-		peerManager:   peerManager,
-		network:       network,
-		recTx:         recTx,
-		removeTxsCh:   removeTxsCh,
-		stateUpdateCh: stateUpdateCh,
-		newStream:     newStream,
-		txChan:        make(chan types.ITransaction, txChanLength),
-		stop:          make(chan bool, 1),
+		accountState:   accountState,
+		contractState:  contractState,
+		consensus:      consensus,
+		runner:         runner,
+		txs:            list.NewTxList(accountState, pooldb.NewTxPoolStorage(config.DataDir+"/"+txPoolStorage)),
+		peerManager:    peerManager,
+		network:        network,
+		recTx:          recTx,
+		removeTxsCh:    removeTxsCh,
+		stateUpdateCh:  stateUpdateCh,
+		newStream:      newStream,
+		txChan:         make(chan types.ITransaction, txChanLength),
+		stop:           make(chan bool, 1),
+		lastHeightFunc: lastHeightFunc,
 	}
 }
 
@@ -211,7 +215,7 @@ func (tp *TxPool) verifyTx(tx types.ITransaction) error {
 		return err
 	}
 
-	if err := tp.runner.Verify(tx); err != nil {
+	if err := tp.runner.Verify(tx, tp.lastHeightFunc()); err != nil {
 		return err
 	}
 

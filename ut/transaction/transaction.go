@@ -75,10 +75,10 @@ func NewExchange(net, from, admin, feeTo string, nonce uint64, note string) (*ty
 			SignScript: &types.SignScript{},
 			Fees:       param.Fees,
 		},
-		TxBody: &types.ContractV2Body{
+		TxBody: &types.TxContractV2Body{
 			Contract:     hasharry.StringToAddress(contract),
 			Type:         contractv2.Exchange_,
-			FunctionType: contractv2.Exchange_Init_,
+			FunctionType: contractv2.Exchange_Init,
 			Function: &exchange_func.ExchangeInitBody{
 				Admin: hasharry.StringToAddress(admin),
 				FeeTo: hasharry.StringToAddress(feeTo),
@@ -101,10 +101,10 @@ func NewSetAdmin(from, exchange, admin string, nonce uint64, note string) (*type
 			SignScript: &types.SignScript{},
 			Fees:       param.Fees,
 		},
-		TxBody: &types.ContractV2Body{
+		TxBody: &types.TxContractV2Body{
 			Contract:     hasharry.StringToAddress(exchange),
 			Type:         contractv2.Exchange_,
-			FunctionType: contractv2.Exchange_SetAdmin_,
+			FunctionType: contractv2.Exchange_SetAdmin,
 			Function: &exchange_func.ExchangeAdmin{
 				Address: hasharry.StringToAddress(admin),
 			},
@@ -126,10 +126,10 @@ func NewSetFeeTo(from, exchange, feeTo string, nonce uint64, note string) (*type
 			SignScript: &types.SignScript{},
 			Fees:       param.Fees,
 		},
-		TxBody: &types.ContractV2Body{
+		TxBody: &types.TxContractV2Body{
 			Contract:     hasharry.StringToAddress(exchange),
 			Type:         contractv2.Exchange_,
-			FunctionType: contractv2.Exchange_SetFeeTo_,
+			FunctionType: contractv2.Exchange_SetFeeTo,
 			Function: &exchange_func.ExchangeFeeTo{
 				Address: hasharry.StringToAddress(feeTo),
 			},
@@ -140,7 +140,7 @@ func NewSetFeeTo(from, exchange, feeTo string, nonce uint64, note string) (*type
 }
 
 func NewPairCreate(net, from, to, exchange, tokenA, tokenB string, amountADesired, amountBDesired, amountAMin, amountBMin, nonce uint64, note string) (*types.Transaction, error) {
-	contract, err := exchange_runner.PairAddress(net, tokenA, tokenB)
+	contract, err := exchange_runner.PairAddress(net, hasharry.StringToAddress(tokenA), hasharry.StringToAddress(tokenB), hasharry.StringToAddress(exchange))
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func NewPairCreate(net, from, to, exchange, tokenA, tokenB string, amountADesire
 			SignScript: &types.SignScript{},
 			Fees:       param.Fees,
 		},
-		TxBody: &types.ContractV2Body{
+		TxBody: &types.TxContractV2Body{
 			Contract:     hasharry.StringToAddress(contract),
 			Type:         contractv2.Pair_,
 			FunctionType: contractv2.Pair_Create,
@@ -191,14 +191,14 @@ func NewSwapExactIn(from, to, exchange string, amountIn, amountOutMin uint64, pa
 			SignScript: &types.SignScript{},
 			Fees:       param.Fees,
 		},
-		TxBody: &types.ContractV2Body{
+		TxBody: &types.TxContractV2Body{
 			Contract:     hasharry.StringToAddress(exchange),
 			Type:         contractv2.Exchange_,
 			FunctionType: contractv2.Exchange_ExactIn,
 			Function: &exchange_func.ExactIn{
 				AmountIn:     amountIn,
 				AmountOutMin: amountOutMin,
-				Address:      address,
+				Path:         address,
 				To:           hasharry.StringToAddress(to),
 				Deadline:     deadline,
 			},
@@ -224,14 +224,14 @@ func NewSwapExactOut(from, to, exchange string, amountOut, amountInMax uint64, p
 			SignScript: &types.SignScript{},
 			Fees:       param.Fees,
 		},
-		TxBody: &types.ContractV2Body{
+		TxBody: &types.TxContractV2Body{
 			Contract:     hasharry.StringToAddress(exchange),
 			Type:         contractv2.Exchange_,
 			FunctionType: contractv2.Exchange_ExactOut,
 			Function: &exchange_func.ExactOut{
 				AmountOut:   amountOut,
 				AmountInMax: amountInMax,
-				Address:     address,
+				Path:        address,
 				To:          hasharry.StringToAddress(to),
 				Deadline:    deadline,
 			},

@@ -36,13 +36,29 @@ type RpcExchangeSetFeeToBody struct {
 	Address string `json:"address"`
 }
 
+type RpcExchangeExactInBody struct {
+	AmountIn     uint64   `json:"amountin"`
+	AmountOutMin uint64   `json:"amountoutmin"`
+	Path         []string `json:"path"`
+	To           string   `json:"to"`
+	Deadline     uint64   `json:"deadline"`
+}
+
+type RpcExchangeExactOutBody struct {
+	AmountOut   uint64   `json:"amountout"`
+	AmountInMax uint64   `json:"amountinmax"`
+	Path        []string `json:"path"`
+	To          string   `json:"to"`
+	Deadline    uint64   `json:"deadline"`
+}
+
 type RpcExchangePairCreate struct {
 	Exchange       string  `json:"exchange"`
 	TokenA         string  `json:"tokenA"`
 	TokenB         string  `json:"tokenB"`
 	To             string  `json:"to"`
-	AmountADesired float64 `json:"amountADesired"`
-	AmountBDesired float64 `json:"amountBDesired"`
-	AmountAMin     float64 `json:"amountAMin"`
-	AmountBMin     float64 `json:"amountBMin"`
+	AmountADesired float64 `json:"amountadesired"`
+	AmountBDesired float64 `json:"amountbdesired"`
+	AmountAMin     float64 `json:"amountamin"`
+	AmountBMin     float64 `json:"amountbmin"`
 }

@@ -1,6 +1,7 @@
 package exchange_runner
 
 import (
+	bytes2 "bytes"
 	"errors"
 	"fmt"
 	"github.com/uworldao/UWORLD/common/hasharry"
@@ -13,12 +14,11 @@ import (
 	"github.com/uworldao/UWORLD/param"
 	"github.com/uworldao/UWORLD/ut"
 	"math/big"
-	"strings"
 )
 
 type PairRunner struct {
 	library      *library.RunnerLibrary
-	contractBody *types.ContractV2Body
+	contractBody *types.TxContractV2Body
 	funBody      *exchange_func.ExchangePairCreate
 	exHeader     *contractv2.ContractV2
 	exchange     *exchange2.Exchange
@@ -37,7 +37,7 @@ func NewPairRunner(lib *library.RunnerLibrary, tx types.ITransaction, height, bl
 	var exchange *exchange2.Exchange
 	var pair *exchange2.Pair
 	txBody := tx.GetTxBody()
-	contractBody, _ := txBody.(*types.ContractV2Body)
+	contractBody, _ := txBody.(*types.TxContractV2Body)
 	address := contractBody.Contract
 
 	funBody, _ := contractBody.Function.(*exchange_func.ExchangePairCreate)
@@ -78,7 +78,7 @@ func (p *PairRunner) PreCreateVerify() error {
 	if p.pair != nil {
 		return errors.New("pair exist")
 	}
-	address, err := PairAddress(param.Net, p.funBody.TokenA.String(), p.funBody.TokenB.String())
+	address, err := PairAddress(param.Net, p.funBody.TokenA, p.funBody.TokenB, p.exHeader.Address)
 	if err != nil {
 		return fmt.Errorf("pair address error")
 	}
@@ -98,17 +98,19 @@ func (p *PairRunner) PreAddVerify() error {
 	if p.pair == nil {
 		return errors.New("pair not exist")
 	}
-	address, err := PairAddress(param.Net, p.funBody.TokenA.String(), p.funBody.TokenB.String())
+	address, err := PairAddress(param.Net, p.funBody.TokenA, p.funBody.TokenB, p.exHeader.Address)
 	if err != nil {
 		return fmt.Errorf("pair address error")
 	}
 	if address != p.address.String() {
 		return fmt.Errorf("wrong pair contract address")
 	}
-	reserveA, reserveB, err := p.GetReserves()
-	if err != nil {
-		return err
+	pairContract := p.library.GetContractV2(address)
+	if pairContract == nil {
+		return fmt.Errorf("the pair %s is not exist", address)
 	}
+	pair := pairContract.Body.(*exchange2.Pair)
+	reserveA, reserveB := p.library.GetReservesByPair(pair, p.funBody.TokenA, p.funBody.TokenB)
 	_, _, err = p.optimalAmount(reserveA, reserveB, p.funBody.AmountADesired, p.funBody.AmountBDesired, p.funBody.AmountAMin, p.funBody.AmountBMin)
 	return err
 }
@@ -161,7 +163,6 @@ func (p *PairRunner) Create() {
 			p.state.State = types.Contract_Failed
 			p.state.Message = ERR.Error()
 		}
-		p.update()
 	}()
 
 	if p.exHeader == nil {
@@ -179,21 +180,32 @@ func (p *PairRunner) Create() {
 
 	p.createPair()
 
-	reserveA, reserveB, err := p.GetReserves()
-	if err != nil {
-		ERR = err
-		return
-	}
+	reserveA, reserveB := p.library.GetReservesByPair(p.pair, p.funBody.TokenA, p.funBody.TokenB)
+
 	amountA, amountB, err := p.optimalAmount(reserveA, reserveB, p.funBody.AmountADesired, p.funBody.AmountBDesired, p.funBody.AmountAMin, p.funBody.AmountBMin)
 	if err != nil {
 		ERR = err
 		return
 	}
-	if err = p.library.Transfer(p.sender, p.address, p.funBody.TokenA, amountA, p.height); err != nil {
+	transInfo1 := &library.TransferInfo{
+		From:   p.sender,
+		To:     p.address,
+		Token:  p.funBody.TokenA,
+		Amount: amountA,
+		Height: p.height,
+	}
+	if err = p.library.PreTransfer(transInfo1); err != nil {
 		ERR = err
 		return
 	}
-	if err = p.library.Transfer(p.sender, p.address, p.funBody.TokenB, amountB, p.height); err != nil {
+	transInfo2 := &library.TransferInfo{
+		From:   p.sender,
+		To:     p.address,
+		Token:  p.funBody.TokenB,
+		Amount: amountB,
+		Height: p.height,
+	}
+	if err = p.library.PreTransfer(transInfo2); err != nil {
 		ERR = err
 		return
 	}
@@ -201,32 +213,21 @@ func (p *PairRunner) Create() {
 		ERR = err
 		return
 	}
+	p.library.Transfer(transInfo1)
+	p.library.Transfer(transInfo2)
+	p.update()
 }
 
 func (p *PairRunner) createPair() {
-	token0, token1 := SortToken(p.funBody.TokenA.String(), p.funBody.TokenB.String())
-	p.pair = exchange2.NewPair(p.funBody.Exchange, hasharry.StringToAddress(token0), hasharry.StringToAddress(token1))
+	token0, token1 := library.SortToken(p.funBody.TokenA, p.funBody.TokenB)
+	p.pair = exchange2.NewPair(p.funBody.Exchange, token0, token1)
 	p.pairHeader = &contractv2.ContractV2{
 		Address:    p.address,
 		CreateHash: p.tx.Hash(),
 		Type:       contractv2.Pair_,
 		Body:       p.pair,
 	}
-	p.exchange.AddPair(hasharry.StringToAddress(token0), hasharry.StringToAddress(token1), p.address)
-}
-
-func (p *PairRunner) GetReserves() (uint64, uint64, error) {
-	pairContract := p.library.GetContractV2(p.address.String())
-	if pairContract != nil {
-		return 0, 0, fmt.Errorf("pair %s exist", p.address.String())
-	}
-	reserve0, reserve1, _ := p.pair.GetReserves()
-	token0, _ := SortToken(p.funBody.TokenA.String(), p.funBody.TokenB.String())
-	if p.funBody.TokenA.String() == token0 {
-		return reserve0, reserve1, nil
-	} else {
-		return reserve1, reserve0, nil
-	}
+	p.exchange.AddPair(token0, token1, p.address)
 }
 
 func (p *PairRunner) mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
@@ -252,7 +253,10 @@ func (p *PairRunner) mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
 		return errors.New("insufficient_liquidity_minted")
 	}
 	p.pair.Mint(p.funBody.To.String(), liquidityValue)
-	p.pair.Update(amount0, amount1, feeOn, p.blockTime)
+	p.pair.Update(_reserve0+amount0, _reserve1+amount1, _reserve0, _reserve1, p.blockTime)
+	if feeOn {
+		p.pair.UpdateKLast()
+	}
 	return nil
 }
 
@@ -294,17 +298,8 @@ func (p *PairRunner) update() {
 	p.library.SetContractV2State(p.tx.Hash().String(), p.state)
 }
 
-func PairAddress(net string, tokenA, tokenB string) (string, error) {
-	token0, token1 := SortToken(tokenA, tokenB)
-	bytes := make([]byte, 0)
-	bytes = append(hasharry.StringToAddress(token0).Bytes(), hasharry.StringToAddress(token1).Bytes()...)
+func PairAddress(net string, tokenA, tokenB hasharry.Address, exchange hasharry.Address) (string, error) {
+	token0, token1 := library.SortToken(tokenA, tokenB)
+	bytes := bytes2.Join([][]byte{[]byte(token0.String()), []byte(token1.String()), []byte(exchange.String())}, []byte{})
 	return ut.GenerateContractV2Address(net, bytes)
-}
-
-func SortToken(tokenA, tokenB string) (string, string) {
-	if strings.Compare(tokenA, tokenB) > 0 {
-		return tokenA, tokenB
-	} else {
-		return tokenB, tokenA
-	}
 }

@@ -26,6 +26,8 @@ type IAccountState interface {
 
 	Transfer(from, to, token hasharry.Address, amount, height uint64) error
 
+	PreTransfer(from, to, token hasharry.Address, amount, height uint64) error
+
 	StateTrieCommit() (hasharry.Hash, error)
 
 	RootHash() hasharry.Hash

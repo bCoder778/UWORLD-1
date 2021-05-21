@@ -324,7 +324,7 @@ func (t *Transaction) TranslateToRlpTransaction() *RlpTransaction {
 	rlpTx.TxHead = t.TxHead
 	switch t.GetTxType() {
 	case ContractV2_:
-		body, _ := t.TxBody.(*ContractV2Body)
+		body, _ := t.TxBody.(*TxContractV2Body)
 		rlpC := &RlpContract{
 			TxHead: t.TxHead,
 			TxBody: RlpContractBody{
@@ -335,16 +335,24 @@ func (t *Transaction) TranslateToRlpTransaction() *RlpTransaction {
 			},
 		}
 		switch body.FunctionType {
-		case contractv2.Exchange_Init_:
+		case contractv2.Exchange_Init:
 			function, _ := body.Function.(*exchange_func.ExchangeInitBody)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
-		case contractv2.Exchange_SetAdmin_:
+		case contractv2.Exchange_SetAdmin:
 			function, _ := body.Function.(*exchange_func.ExchangeAdmin)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
-		case contractv2.Exchange_SetFeeTo_:
+		case contractv2.Exchange_SetFeeTo:
 			function, _ := body.Function.(*exchange_func.ExchangeFeeTo)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Exchange_ExactIn:
+			function, _ := body.Function.(*exchange_func.ExactIn)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Exchange_ExactOut:
+			function, _ := body.Function.(*exchange_func.ExactOut)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
 		case contractv2.Pair_Create:

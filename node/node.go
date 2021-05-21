@@ -71,14 +71,13 @@ func NewNode(cfg *config.Config) (*Node, error) {
 	if node.blockChain, err = core.NewBlockChain(cfg.DataDir, node.consensus, stateUpdateChan, removeTxsCh, accountState, contractState, runner); err != nil {
 		return nil, fmt.Errorf("create block chain failed! err:%s", err)
 	}
-
 	node.network = reqmgr.NewRequestManger(node.blockChain, revBlkCh, revTxCh, node)
 
 	if node.p2pServer, err = p2p.NewP2pServer(cfg, node.localNode, node.peerManager, node.network); err != nil {
 		return nil, fmt.Errorf("create p2p server failed! err:%s", err)
 	}
 
-	node.txPool = txmgr.NewTxPool(cfg, accountState, contractState, node.consensus, node.peerManager, node.network, runner, revTxCh, stateUpdateChan, removeTxsCh, node.p2pServer)
+	node.txPool = txmgr.NewTxPool(cfg, accountState, contractState, node.consensus, node.peerManager, node.network, runner, revTxCh, stateUpdateChan, removeTxsCh, node.p2pServer, node.blockChain.GetLastHeight)
 
 	if err := node.consensus.Init(node.blockChain); err != nil {
 		return nil, fmt.Errorf("init consensus failed! err:%s", err)

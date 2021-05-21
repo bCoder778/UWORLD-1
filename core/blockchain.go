@@ -426,7 +426,7 @@ func (blc *BlockChain) verifyTx(tx types.ITransaction, blockHeight uint64, block
 		return err
 	}
 
-	//if err := blc.runner.Verify(tx, blockHeight, blocktime); err != nil {
+	//if err := blc.runner.Verify(tx, blockHeight); err != nil {
 	//return err
 	//}
 	if err := blc.verifyBusiness(tx, blockHeight); err != nil {

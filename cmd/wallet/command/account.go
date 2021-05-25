@@ -79,6 +79,7 @@ func GetAccountRpc(addr string) (string, error) {
 		return resp.Err, nil
 	}
 }
+
 func GetAccountByRpc(addr string) (*rpc.Response, error) {
 	client, err := NewRpcClient()
 	if err != nil {
@@ -89,7 +90,6 @@ func GetAccountByRpc(addr string) (*rpc.Response, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*20)
 	defer cancel()
 	return client.Gc.GetAccount(ctx, &rpc.Address{Address: addr})
-
 }
 
 var CreateAccountCmd = &cobra.Command{

@@ -1,11 +1,14 @@
 package runner
 
 import (
+	"fmt"
+	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/runner/exchange_runner"
 	"github.com/uworldao/UWORLD/core/runner/library"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
+	"github.com/uworldao/UWORLD/core/types/contractv2/exchange"
 	"sync"
 )
 
@@ -83,4 +86,24 @@ func (c *ContractRunner) RunContract(tx types.ITransaction, blockHeight uint64, 
 		}
 	}
 	return nil
+}
+
+func (c *ContractRunner) ExchangePair(address hasharry.Address) ([]*types.RpcPair, error) {
+	exHeader := c.library.GetContractV2(address.String())
+	if exHeader == nil {
+		return nil, fmt.Errorf("exchange %s is not exist", address.String())
+	}
+	rpcPairList := make([]*types.RpcPair, 0)
+	ex := exHeader.Body.(*exchange.Exchange)
+	for _, pair := range ex.AllPairs {
+		token0, token1 := exchange.ParseKey(pair.Key)
+		rpcPairList = append(rpcPairList, &types.RpcPair{
+			Address:  pair.Address.String(),
+			Token0:   token0.String(),
+			Token1:   token1.String(),
+			Reserve0: c.library.GetBalance(pair.Address, token0),
+			Reserve1: c.library.GetBalance(pair.Address, token1),
+		})
+	}
+	return rpcPairList, nil
 }

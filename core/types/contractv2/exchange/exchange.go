@@ -102,7 +102,7 @@ func DecodeToExchange(bytes []byte) (*Exchange, error) {
 	ex := NewExchange(rlpEx.Admin, rlpEx.FeeTo)
 	ex.AllPairs = rlpEx.AllPairs
 	for _, pair := range rlpEx.AllPairs {
-		tokenB, token2 := parseKey(pair.Key)
+		tokenB, token2 := ParseKey(pair.Key)
 		ex.Pair[tokenB] = map[hasharry.Address]hasharry.Address{token2: pair.Address}
 	}
 	return ex, nil
@@ -112,7 +112,7 @@ func pairKey(token0 hasharry.Address, token1 hasharry.Address) string {
 	return fmt.Sprintf("%s-%s", token0.String(), token1.String())
 }
 
-func parseKey(key string) (hasharry.Address, hasharry.Address) {
+func ParseKey(key string) (hasharry.Address, hasharry.Address) {
 	strList := strings.Split(key, "-")
 	if len(strList) != 2 {
 		return hasharry.Address{}, hasharry.Address{}

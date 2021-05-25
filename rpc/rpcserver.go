@@ -9,6 +9,7 @@ import (
 	"github.com/uworldao/UWORLD/config"
 	"github.com/uworldao/UWORLD/consensus"
 	"github.com/uworldao/UWORLD/core/interface"
+	"github.com/uworldao/UWORLD/core/runner"
 	coreTypes "github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/crypto/certgen"
 	log "github.com/uworldao/UWORLD/log/log15"
@@ -30,6 +31,7 @@ type Server struct {
 	txPool        _interface.ITxPool
 	accountState  _interface.IAccountState
 	contractState _interface.IContractState
+	runner        *runner.ContractRunner
 	consensus     consensus.IConsensus
 	chain         _interface.IBlockChain
 	grpcServer    *grpc.Server
@@ -38,9 +40,10 @@ type Server struct {
 }
 
 func NewServer(config *config.RpcConfig, txPool _interface.ITxPool, state _interface.IAccountState, contractState _interface.IContractState,
+	runner *runner.ContractRunner,
 	consensus consensus.IConsensus, chain _interface.IBlockChain, peerManager p2p.IPeerManager, peers reqmgr.Peers) *Server {
 	return &Server{config: config, txPool: txPool, accountState: state, contractState: contractState,
-		consensus: consensus, chain: chain, peerManager: peerManager, peers: peers}
+		consensus: consensus, chain: chain, peerManager: peerManager, peers: peers, runner: runner}
 }
 
 func (rs *Server) Start() error {
@@ -247,6 +250,15 @@ func (rs *Server) NodeInfo(context.Context, *Null) (*Response, error) {
 	node := rs.peers.NodeInfo()
 	nodeJson, _ := json.Marshal(node)
 	return NewResponse(rpctypes.RpcSuccess, nodeJson, ""), nil
+}
+
+func (rs *Server) GetExchangePairs(ctx context.Context, req *Address) (*Response, error) {
+	pairs, err := rs.runner.ExchangePair(hasharry.StringToAddress(req.Address))
+	if err != nil {
+		return NewResponse(rpctypes.RpcErrContract, nil, err.Error()), nil
+	}
+	bytes, _ := json.Marshal(pairs)
+	return NewResponse(rpctypes.RpcSuccess, bytes, ""), nil
 }
 
 func NewResponse(code int32, result []byte, err string) *Response {

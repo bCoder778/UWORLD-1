@@ -62,3 +62,11 @@ type RpcExchangePairCreate struct {
 	AmountAMin     float64 `json:"amountamin"`
 	AmountBMin     float64 `json:"amountbmin"`
 }
+
+type RpcPair struct {
+	Address  string `json:"address"`
+	Token0   string `json:"token0"`
+	Token1   string `json:"token1"`
+	Reserve0 uint64 `json:"reserve0"`
+	Reserve1 uint64 `json:"reserve1"`
+}

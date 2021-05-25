@@ -54,12 +54,15 @@ func (e *ExchangeRunner) PreInitVerify() error {
 
 func (e *ExchangeRunner) PreSetVerify() error {
 	if e.exHeader == nil {
-		return fmt.Errorf("exchanges %s is not exist", e.address.String())
+		return fmt.Errorf("exchange %s is not exist", e.address.String())
 	}
 	return e.exchange.VerifySetter(e.tx.From())
 }
 
 func (e *ExchangeRunner) PreExactInVerify(lastHeight uint64) error {
+	if e.exHeader == nil {
+		return fmt.Errorf("exchange is not exist")
+	}
 	funcBody, _ := e.contractBody.Function.(*exchange_func.ExactIn)
 	if funcBody == nil {
 		return errors.New("wrong contractV2 function")
@@ -89,6 +92,9 @@ func (e *ExchangeRunner) PreExactInVerify(lastHeight uint64) error {
 }
 
 func (e *ExchangeRunner) PreExactOutVerify(lastHeight uint64) error {
+	if e.exHeader == nil {
+		return fmt.Errorf("exchange is not exist")
+	}
 	funcBody, _ := e.contractBody.Function.(*exchange_func.ExactOut)
 	if funcBody == nil {
 		return errors.New("wrong contractV2 function")
@@ -376,9 +382,6 @@ func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount
 	x := big.NewInt(0).Mul(balance0Adjusted, balance1Adjusted)
 	// y = _reserve0 * _reserve1 * 1000^2
 	y := big.NewInt(0).Mul(big.NewInt(0).Mul(big.NewInt(int64(_reserve0)), big.NewInt(int64(_reserve1))), big.NewInt(1000^2))
-	iX := x.Uint64()
-	iY := y.Uint64()
-	fmt.Println(iX, iY)
 	if x.Cmp(y) < 0 {
 		return errors.New("K")
 	}
@@ -399,7 +402,7 @@ func (e *ExchangeRunner) getAmountsOut(amountIn uint64, path []hasharry.Address)
 		pairAddress := e.exchange.PairAddress(token0, token1)
 		reserveIn, reserveOut := e.library.GetReservesByPairAddress(pairAddress, path[i], path[i+1])
 		// 下一个数额 =  当前数额兑换的结果
-		amounts[i+1], err = e.getAmountOut(amounts[i], reserveIn, reserveOut)
+		amounts[i+1], err = GetAmountOut(amounts[i], reserveIn, reserveOut)
 		if err != nil {
 			return amounts, err
 		}
@@ -417,7 +420,7 @@ func (e *ExchangeRunner) getAmountsIn(amountOut uint64, path []hasharry.Address)
 		token0, token1 := library.SortToken(path[i-1], path[i])
 		pairAddress := e.exchange.PairAddress(token0, token1)
 		reserveIn, reserveOut := e.library.GetReservesByPairAddress(pairAddress, path[i-1], path[i])
-		amounts[i-1], err = e.getAmountIn(amounts[i], reserveIn, reserveOut)
+		amounts[i-1], err = GetAmountIn(amounts[i], reserveIn, reserveOut)
 		if err != nil {
 			return amounts, err
 		}
@@ -426,7 +429,7 @@ func (e *ExchangeRunner) getAmountsIn(amountOut uint64, path []hasharry.Address)
 }
 
 // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
-func (e *ExchangeRunner) getAmountOut(amountIn, reserveIn, reserveOut uint64) (uint64, error) {
+func GetAmountOut(amountIn, reserveIn, reserveOut uint64) (uint64, error) {
 	if amountIn <= 0 {
 		return 0, errors.New("insufficient input amount")
 	}
@@ -446,7 +449,7 @@ func (e *ExchangeRunner) getAmountOut(amountIn, reserveIn, reserveOut uint64) (u
 
 // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
 // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
-func (e *ExchangeRunner) getAmountIn(amountOut, reserveIn, reserveOut uint64) (uint64, error) {
+func GetAmountIn(amountOut, reserveIn, reserveOut uint64) (uint64, error) {
 	if amountOut <= 0 {
 		return 0, errors.New("insufficient output amount")
 	}
@@ -530,8 +533,12 @@ func ExchangeAddress(net, from string, nonce uint64) (string, error) {
 
 func swapInfo(amounts []uint64) string {
 	str := ""
-	for _, amopunt := range amounts {
-		str += fmt.Sprintf("%d ", amopunt)
+	for i, amopunt := range amounts {
+		if i != len(amounts)-1 {
+			str += fmt.Sprintf("%d->", amopunt)
+		} else {
+			str += fmt.Sprintf("%d", amopunt)
+		}
 	}
 	return str
 }

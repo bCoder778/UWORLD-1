@@ -87,7 +87,7 @@ func NewNode(cfg *config.Config) (*Node, error) {
 	node.blockManger = blkmgr.NewBlockManager(node.blockChain, node.peerManager, node.network, node.consensus, revBlkCh, genBlkCh, minerWorkCh, node.p2pServer)
 	node.private = cfg.NodePrivate
 	rpcConfig := &config.RpcConfig{DataDir: cfg.DataDir, RpcPort: cfg.RpcPort, RpcTLS: cfg.RpcTLS, RpcCert: cfg.RpcCert, RpcPass: cfg.RpcPass}
-	node.rpcServer = rpc.NewServer(rpcConfig, node.txPool, accountState, contractState, node.consensus, node.blockChain, node.peerManager, node)
+	node.rpcServer = rpc.NewServer(rpcConfig, node.txPool, accountState, contractState, runner, node.consensus, node.blockChain, node.peerManager, node)
 
 	if cfg.FallBackTo != config.DefaultFallBack && cfg.FallBackTo > 0 {
 		if err := node.blockChain.FallBackTo(uint64(cfg.FallBackTo)); err != nil {

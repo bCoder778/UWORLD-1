@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,9 +9,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types"
+	"github.com/uworldao/UWORLD/rpc"
 	"github.com/uworldao/UWORLD/rpc/rpctypes"
 	"github.com/uworldao/UWORLD/ut/transaction"
 	"strconv"
+	"time"
 )
 
 func init() {
@@ -21,6 +24,7 @@ func init() {
 		CreatePairCmd,
 		SwapExactInCmd,
 		SwapExactOutCmd,
+		GetAllPairsCmd,
 	}
 	RootCmd.AddCommand(exchangeCmds...)
 	RootSubCmdGroups["exchange"] = exchangeCmds
@@ -489,8 +493,15 @@ func parseSEIParams(args []string, nonce uint64) (*types.Transaction, error) {
 			return nil, errors.New("wrong nonce")
 		}
 	}
-	path := []string{tokenA, tokenB}
-	tx, err := transaction.NewSwapExactIn(from, to, exchange, amountIn, amountOutMin, path, deadline, nonce, "")
+	pairs, err := GetAllPairByRpc(exchange)
+	if err != nil {
+		return nil, err
+	}
+	paths := transaction.CalculateShortestPath(hasharry.StringToAddress(tokenA), hasharry.StringToAddress(tokenB), pairs)
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("not found")
+	}
+	tx, err := transaction.NewSwapExactIn(from, to, exchange, amountIn, amountOutMin, paths, deadline, nonce, "")
 	if err != nil {
 		return nil, err
 	}
@@ -593,10 +604,73 @@ func parseSEOParams(args []string, nonce uint64) (*types.Transaction, error) {
 			return nil, errors.New("wrong nonce")
 		}
 	}
-	path := []string{tokenA, tokenB}
-	tx, err := transaction.NewSwapExactOut(from, to, exchange, amountOut, amountInMax, path, deadline, nonce, "")
+	pairs, err := GetAllPairByRpc(exchange)
+	if err != nil {
+		return nil, err
+	}
+	paths := transaction.CalculateShortestPath(hasharry.StringToAddress(tokenA), hasharry.StringToAddress(tokenB), pairs)
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("not found")
+	}
+	tx, err := transaction.NewSwapExactOut(from, to, exchange, amountOut, amountInMax, paths, deadline, nonce, "")
 	if err != nil {
 		return nil, err
 	}
 	return tx, nil
+}
+
+var GetAllPairsCmd = &cobra.Command{
+	Use:     "GetAllPairs {exchange};Get all pairs for exchange;",
+	Aliases: []string{"getallpairs", "gap", "GAP"},
+	Short:   "GetAllPairs {exchange}; Get all pairs for exchanges;",
+	Example: `
+	GetAllPairs UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W
+		OR
+	GetAllPairs UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W
+	`,
+	Args: cobra.MinimumNArgs(1),
+	Run:  GetAllPairs,
+}
+
+func GetAllPairs(cmd *cobra.Command, args []string) {
+	client, err := NewRpcClient()
+	if err != nil {
+		log.Error(cmd.Use+" err: ", err)
+		return
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*20)
+	defer cancel()
+
+	resp, err := client.Gc.GetExchangePairs(ctx, &rpc.Address{Address: args[0]})
+	if err != nil {
+		log.Error(cmd.Use+" err: ", err)
+		return
+	}
+	if resp.Code == 0 {
+		output(string(resp.Result))
+		return
+	}
+	outputRespError(cmd.Use, resp)
+}
+
+func GetAllPairByRpc(addr string) ([]*types.RpcPair, error) {
+	client, err := NewRpcClient()
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*20)
+	defer cancel()
+	rs, err := client.Gc.GetExchangePairs(ctx, &rpc.Address{Address: addr})
+	if err != nil {
+		return nil, err
+	}
+	pairs := make([]*types.RpcPair, 0)
+	if err := json.Unmarshal(rs.Result, &pairs); err != nil {
+		return nil, err
+	}
+	return pairs, nil
 }

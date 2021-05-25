@@ -535,7 +535,7 @@ func swapInfo(amounts []uint64) string {
 	str := ""
 	for i, amopunt := range amounts {
 		if i != len(amounts)-1 {
-			str += fmt.Sprintf("%d->", amopunt)
+			str += fmt.Sprintf("%d-", amopunt)
 		} else {
 			str += fmt.Sprintf("%d", amopunt)
 		}

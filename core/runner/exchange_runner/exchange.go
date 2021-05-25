@@ -68,7 +68,6 @@ func (e *ExchangeRunner) PreExactInVerify(lastHeight uint64) error {
 		return errors.New("invalid path")
 	}
 	for i := 0; i < len(funcBody.Path)-1; i++ {
-
 		if exist := e.exchange.Exist(library.SortToken(funcBody.Path[i], funcBody.Path[i+1])); !exist {
 			return fmt.Errorf("the pair of %s and %s does not exist", funcBody.Path[i].String(), funcBody.Path[i+1].String())
 		}
@@ -222,7 +221,7 @@ func (e *ExchangeRunner) SwapExactIn(blockHeight, blockTime uint64) {
 	}
 	outAmount := amounts[len(amounts)-1]
 	if outAmount < funcBody.AmountOutMin {
-		ERR = fmt.Errorf("%d is less than the minimum output %d", outAmount, funcBody.AmountOutMin)
+		ERR = fmt.Errorf("outAmount %d is less than the minimum output %d", outAmount, funcBody.AmountOutMin)
 		return
 	}
 	pair0 := e.exchange.PairAddress(library.SortToken(funcBody.Path[0], funcBody.Path[1]))
@@ -408,6 +407,24 @@ func (e *ExchangeRunner) getAmountsOut(amountIn uint64, path []hasharry.Address)
 	return amounts, nil
 }
 
+// performs chained getAmountIn calculations on any number of pairs
+func (e *ExchangeRunner) getAmountsIn(amountOut uint64, path []hasharry.Address) ([]uint64, error) {
+	var err error
+	amounts := make([]uint64, len(path))
+	amounts[len(amounts)-1] = amountOut
+	for i := len(path) - 1; i > 0; i-- {
+		// 获取储备量
+		token0, token1 := library.SortToken(path[i-1], path[i])
+		pairAddress := e.exchange.PairAddress(token0, token1)
+		reserveIn, reserveOut := e.library.GetReservesByPairAddress(pairAddress, path[i-1], path[i])
+		amounts[i-1], err = e.getAmountIn(amounts[i], reserveIn, reserveOut)
+		if err != nil {
+			return amounts, err
+		}
+	}
+	return amounts, nil
+}
+
 // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
 func (e *ExchangeRunner) getAmountOut(amountIn, reserveIn, reserveOut uint64) (uint64, error) {
 	if amountIn <= 0 {
@@ -427,8 +444,81 @@ func (e *ExchangeRunner) getAmountOut(amountIn, reserveIn, reserveOut uint64) (u
 	return amountOut.Uint64(), nil
 }
 
-func (e *ExchangeRunner) SwapExactOut(lastHeight uint64, blockTime uint64) {
+// given an output amount of an asset and pair reserves, returns a required input amount of the other asset
+// given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
+func (e *ExchangeRunner) getAmountIn(amountOut, reserveIn, reserveOut uint64) (uint64, error) {
+	if amountOut <= 0 {
+		return 0, errors.New("insufficient output amount")
+	}
+	if reserveIn <= 0 || reserveOut <= 0 {
+		return 0, errors.New("insufficient liquidity")
+	}
+	if reserveOut < amountOut {
+		return 0, errors.New("insufficient liquidity")
+	}
+	/*	amountOut = amountOut / 1000000
+		reserveIn = reserveIn / 10000000
+		reserveOut = reserveOut / 10000000*/
+	// numerator = amountOut * reserveIn * 1000
+	numerator := big.NewInt(0).Mul(big.NewInt(0).Mul(big.NewInt(int64(amountOut)), big.NewInt(int64(reserveIn))), big.NewInt(1000))
+	// denominator = (reserveOut - amountOut) (* 997)
+	denominator := big.NewInt(0).Mul(big.NewInt(0).Sub(big.NewInt(int64(reserveOut)), big.NewInt(int64(amountOut))), big.NewInt(997))
+	// amountIn = (numerator\denominator) + 1
+	x := big.NewInt(0).Div(numerator, denominator)
 
+	amountIn := big.NewInt(0).Add(x, big.NewInt(1))
+	return amountIn.Uint64(), nil
+}
+
+func (e *ExchangeRunner) SwapExactOut(blockHeight uint64, blockTime uint64) {
+	var ERR error
+	var err error
+	var amounts []uint64
+	state := &types.ContractV2State{State: types.Contract_Success}
+	defer func() {
+		if ERR != nil {
+			state.State = types.Contract_Failed
+			state.Message = ERR.Error()
+		} else {
+			state.Message = swapInfo(amounts)
+		}
+		e.library.SetContractV2State(e.tx.Hash().String(), state)
+	}()
+
+	funcBody, _ := e.contractBody.Function.(*exchange_func.ExactOut)
+
+	if funcBody.Deadline != 0 && funcBody.Deadline < blockHeight {
+		ERR = fmt.Errorf("past the deadline")
+		return
+	}
+	amounts, err = e.getAmountsIn(funcBody.AmountOut, funcBody.Path)
+	if err != nil {
+		ERR = err
+		return
+	}
+	if amounts[0] > funcBody.AmountInMax {
+		ERR = fmt.Errorf("amountIn %d is greater than the maximum input amount %d", amounts[0], funcBody.AmountInMax)
+		return
+	}
+	pair0 := e.exchange.PairAddress(library.SortToken(funcBody.Path[0], funcBody.Path[1]))
+	if err := e.swapAmounts(amounts, funcBody.Path, funcBody.To, blockHeight, blockTime); err != nil {
+		ERR = err
+		return
+	}
+	transferInfo := &library.TransferInfo{
+		From:   e.tx.From(),
+		To:     pair0,
+		Token:  funcBody.Path[0],
+		Amount: amounts[0],
+		Height: blockHeight,
+	}
+	if err := e.library.PreTransfer(transferInfo); err != nil {
+		ERR = err
+		return
+	}
+	e.transList = append(e.transList, transferInfo)
+	e.transfer()
+	e.update()
 }
 
 func ExchangeAddress(net, from string, nonce uint64) (string, error) {

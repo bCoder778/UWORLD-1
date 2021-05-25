@@ -37,7 +37,7 @@ type ExactOut struct {
 }
 
 func (e *ExactOut) Verify() error {
-	if !ut.IsValidContractAddress(param.Net, e.To.String()) {
+	if !ut.CheckUWDAddress(param.Net, e.To.String()) {
 		return errors.New("wrong to address")
 	}
 	for _, addr := range e.Path {

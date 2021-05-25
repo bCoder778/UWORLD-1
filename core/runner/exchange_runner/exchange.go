@@ -293,7 +293,7 @@ func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount
 	pairAddress := e.exchange.PairAddress(_token0, _token1)
 	pairContract := e.library.GetContractV2(pairAddress.String())
 	pair := pairContract.Body.(*exchange.Pair)
-	_reserve0, _reserve1 := e.library.GetReservesByPairAddress(pairAddress, tokenA, tokenB)
+	_reserve0, _reserve1 := e.library.GetReservesByPairAddress(pairAddress, _token0, _token1)
 	if amount0Out >= _reserve0 || amount1Out >= _reserve1 {
 		return errors.New("insufficient liquidity")
 	}
@@ -335,12 +335,18 @@ func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount
 	if amount0In > 0 {
 		balance0 = balance0 + amount0In
 	} else {
-		balance1 = balance1 + amount1Out
+		balance1 = balance1 + amount1In
 	}
 
 	if amount0Out > 0 {
+		if balance0 < amount0Out {
+			return errors.New("insufficient liquidity")
+		}
 		balance0 = balance0 - amount0Out
 	} else {
+		if balance1 < amount1Out {
+			return errors.New("insufficient liquidity")
+		}
 		balance1 = balance1 - amount1Out
 	}
 
@@ -370,7 +376,10 @@ func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount
 	// x = balance0Adjusted * balance1Adjusted
 	x := big.NewInt(0).Mul(balance0Adjusted, balance1Adjusted)
 	// y = _reserve0 * _reserve1 * 1000^2
-	y := big.NewInt(0).Mul(big.NewInt(0).Mul(big.NewInt(int64(_reserve0)), big.NewInt(int64(_reserve1))), big.NewInt(1000^3))
+	y := big.NewInt(0).Mul(big.NewInt(0).Mul(big.NewInt(int64(_reserve0)), big.NewInt(int64(_reserve1))), big.NewInt(1000^2))
+	iX := x.Uint64()
+	iY := y.Uint64()
+	fmt.Println(iX, iY)
 	if x.Cmp(y) < 0 {
 		return errors.New("K")
 	}

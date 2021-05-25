@@ -78,6 +78,17 @@ func (p *PairRunner) PreCreateVerify() error {
 	if p.pair != nil {
 		return errors.New("pair exist")
 	}
+	if !p.funBody.TokenA.IsEqual(param.Token) {
+		if contract := p.library.GetContract(p.funBody.TokenA.String()); contract == nil {
+			return fmt.Errorf("tokenA %s is not exist", p.funBody.TokenA.String())
+		}
+	}
+	if !p.funBody.TokenB.IsEqual(param.Token) {
+		if contract := p.library.GetContract(p.funBody.TokenB.String()); contract == nil {
+			return fmt.Errorf("tokenB %s is not exist", p.funBody.TokenB.String())
+		}
+	}
+
 	address, err := PairAddress(param.Net, p.funBody.TokenA, p.funBody.TokenB, p.exHeader.Address)
 	if err != nil {
 		return fmt.Errorf("pair address error")

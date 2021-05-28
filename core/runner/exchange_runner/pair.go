@@ -138,7 +138,7 @@ func (p *PairRunner) optimalAmount(reserveA, reserveB, amountADesired, amountBDe
 		// 如果最优数量B < B的期望数量
 		if amountBOptimal <= amountBDesired {
 			if amountBOptimal < amountBMin {
-				return 0, 0, errors.New("insufficient_b_amount")
+				return 0, 0, errors.New("insufficient amountB")
 			}
 			return amountADesired, amountBOptimal, nil
 		} else {
@@ -148,7 +148,7 @@ func (p *PairRunner) optimalAmount(reserveA, reserveB, amountADesired, amountBDe
 				return 0, 0, err
 			}
 			if amountAOptimal < amountAMin {
-				return 0, 0, errors.New("insufficient_a_amount")
+				return 0, 0, errors.New("insufficient amountA")
 			}
 			return amountAOptimal, amountBDesired, nil
 		}
@@ -261,7 +261,7 @@ func (p *PairRunner) mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
 		liquidityValue = math.Min(value1.Uint64()/_reserve0, value2.Uint64()/_reserve1)
 	}
 	if liquidityValue <= 0 {
-		return errors.New("insufficient_liquidity_minted")
+		return errors.New("insufficient liquidity minted")
 	}
 	p.pair.Mint(p.funBody.To.String(), liquidityValue)
 	p.pair.Update(_reserve0+amount0, _reserve1+amount1, _reserve0, _reserve1, p.blockTime)
@@ -279,7 +279,7 @@ func (p *PairRunner) mintFee(_reserve0, _reserve1 uint64) (bool, error) {
 	_kLast := p.pair.KLast // gas savings
 	if feeOn {
 		if _kLast.Cmp(big.NewInt(0)) != 0 {
-			// roottK = Sqrt(_reserve0 * _reserve1)
+			// rootK = Sqrt(_reserve0 * _reserve1)
 			rootK := big.NewInt(0).Sqrt(big.NewInt(0).Mul(big.NewInt(int64(_reserve0)), big.NewInt(int64(_reserve1))))
 			// rootKLast = Sqrt(_kLast)
 			rootKLast := big.NewInt(0).Sqrt(_kLast)

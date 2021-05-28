@@ -17,8 +17,8 @@ import (
 const (
 	Transfer_ TransactionType = iota
 	Contract_
-	ContractV2_
 	LoginCandidate
+	ContractV2_
 	/*LogoutCandidate
 	VoteToCandidate*/
 )

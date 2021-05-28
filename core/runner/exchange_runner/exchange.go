@@ -410,7 +410,7 @@ func (e *ExchangeRunner) getAmountsOut(amountIn uint64, path []hasharry.Address)
 	return amounts, nil
 }
 
-// performs chained getAmountIn calculations on any number of pairs
+// getAmountsIn performs chained getAmountIn calculations on any number of pairs
 func (e *ExchangeRunner) getAmountsIn(amountOut uint64, path []hasharry.Address) ([]uint64, error) {
 	var err error
 	amounts := make([]uint64, len(path))
@@ -428,7 +428,7 @@ func (e *ExchangeRunner) getAmountsIn(amountOut uint64, path []hasharry.Address)
 	return amounts, nil
 }
 
-// given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
+// GetAmountOut given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
 func GetAmountOut(amountIn, reserveIn, reserveOut uint64) (uint64, error) {
 	if amountIn <= 0 {
 		return 0, errors.New("insufficient input amount")
@@ -447,8 +447,7 @@ func GetAmountOut(amountIn, reserveIn, reserveOut uint64) (uint64, error) {
 	return amountOut.Uint64(), nil
 }
 
-// given an output amount of an asset and pair reserves, returns a required input amount of the other asset
-// given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
+// GetAmountIn given an output amount of an asset and pair reserves, returns a required input amount of the other asset
 func GetAmountIn(amountOut, reserveIn, reserveOut uint64) (uint64, error) {
 	if amountOut <= 0 {
 		return 0, errors.New("insufficient output amount")

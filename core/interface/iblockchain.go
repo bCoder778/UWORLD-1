@@ -1,4 +1,4 @@
-package core
+package _interface
 
 import (
 	"github.com/uworldao/UWORLD/common/hasharry"
@@ -23,6 +23,8 @@ type IBlockChain interface {
 	GetRlpBlockByHeight(height uint64) (*types.RlpBlock, error)
 
 	GetRlpBlockByHash(hash hasharry.Hash) (*types.RlpBlock, error)
+
+	GetContractState(hash hasharry.Hash) (*types.ContractV2State, error)
 
 	GetTransaction(hash hasharry.Hash) (types.ITransaction, error)
 

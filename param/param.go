@@ -41,8 +41,14 @@ const (
 	// AtomsPerCoin is the number of atomic units in one coin.
 	AtomsPerCoin = 1e8
 
+	// Circulation is the total number of COINS issued.
+	Circulation = 6300 * 1e4 * AtomsPerCoin
+
 	// GenesisCoins is genesis Coins
 	GenesisCoins = 210 * 1e4 * AtomsPerCoin
+
+	// CoinBaseCoins is reward
+	CoinBaseCoins = 3 * AtomsPerCoin
 
 	//MaxAddressTxs is address the maximum number of transactions in the trading pool
 	MaxAddressTxs = 1000

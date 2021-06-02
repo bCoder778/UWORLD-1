@@ -2,7 +2,7 @@ package list
 
 import (
 	"container/heap"
-	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/types"
 )
 
@@ -105,7 +105,7 @@ func (t *TxSortedMap) Remove(tx types.ITransaction) {
 }
 
 // Delete already packed transactions
-func (t *TxSortedMap) RemoveExecuted(state core.IAccountState) {
+func (t *TxSortedMap) RemoveExecuted(state _interface.IAccountState) {
 	for _, tx := range t.cache {
 		if err := state.VerifyState(tx); err != nil {
 			t.Remove(tx)

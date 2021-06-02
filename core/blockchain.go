@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/consensus"
+	"github.com/uworldao/UWORLD/core/interface"
+	runner2 "github.com/uworldao/UWORLD/core/runner"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/database/blcdb"
 	log "github.com/uworldao/UWORLD/log/log15"
@@ -20,12 +22,13 @@ type BlockChain struct {
 	stateRoot     hasharry.Hash
 	contractRoot  hasharry.Hash
 	consensusRoot hasharry.Hash
-	accountState  IAccountState
-	contractState IContractState
+	accountState  _interface.IAccountState
+	contractState _interface.IContractState
 	consensus     consensus.IConsensus
-	storage       IBlockChainStorage
+	storage       _interface.IBlockChainStorage
 	mutex         sync.RWMutex
-	insertMutex   sync.Mutex
+	insertMutex   sync.RWMutex
+	runner        *runner2.ContractRunner
 	stateUpdateCh chan struct{}
 
 	// List of transactions that have been stored and need
@@ -37,7 +40,7 @@ type BlockChain struct {
 }
 
 func NewBlockChain(dataDir string, consensus consensus.IConsensus, stateUpdateCh chan struct{},
-	removeTxsCh chan types.Transactions, accountState IAccountState, contractState IContractState) (*BlockChain, error) {
+	removeTxsCh chan types.Transactions, accountState _interface.IAccountState, contractState _interface.IContractState, runner *runner2.ContractRunner) (*BlockChain, error) {
 	blockChain := &BlockChain{}
 	storage := blcdb.NewBlockChainStorage(dataDir + "/" + blockChainStorage)
 	err := storage.Open()
@@ -51,6 +54,7 @@ func NewBlockChain(dataDir string, consensus consensus.IConsensus, stateUpdateCh
 	blockChain.stateUpdateCh = stateUpdateCh
 	blockChain.consensus = consensus
 	blockChain.removeTxsCh = removeTxsCh
+	blockChain.runner = runner
 	stateRoot, _ := blockChain.storage.GetStateRoot()
 	err = blockChain.accountState.InitTrie(stateRoot)
 	if err != nil {
@@ -153,6 +157,14 @@ func (blc *BlockChain) GetBlockByHash(hash hasharry.Hash) (*types.Block, error) 
 	rlpBody := &types.RlpBody{txs}
 	block := &types.Block{Header: header, Body: rlpBody.TranslateToBody()}
 	return block, nil
+}
+
+func (blc *BlockChain) GetContractState(hash hasharry.Hash) (*types.ContractV2State, error) {
+	state := blc.contractState.GetContractV2State(hash.String())
+	if state == nil {
+		return nil, fmt.Errorf("%s contract state not exist", hash.String())
+	}
+	return state, nil
 }
 
 func (blc *BlockChain) GetTransaction(hash hasharry.Hash) (types.ITransaction, error) {
@@ -280,21 +292,21 @@ func (blc *BlockChain) SaveGenesisBlock(block *types.Block) error {
 func (blc *BlockChain) updateState(block *types.Block) error {
 	for _, tx := range block.Body.Transactions {
 		switch tx.GetTxType() {
-		case types.Transfer:
+		case types.Transfer_:
 			if err := blc.accountState.UpdateTransferFrom(tx, block.Height); err != nil {
 				return err
 			}
 			if err := blc.accountState.UpdateTransferTo(tx, block.Height); err != nil {
 				return err
 			}
-		case types.TransferV2:
+		case types.TransferV2_:
 			if err := blc.accountState.UpdateTransferV2From(tx, block.Height); err != nil {
 				return err
 			}
 			if err := blc.accountState.UpdateTransferV2To(tx, block.Height); err != nil {
 				return err
 			}
-		case types.ContractTransaction:
+		case types.Contract_:
 			if err := blc.accountState.UpdateContractFrom(tx, block.Height); err != nil {
 				return err
 			}
@@ -302,9 +314,16 @@ func (blc *BlockChain) updateState(block *types.Block) error {
 				return err
 			}
 			blc.contractState.UpdateContract(tx, block.Height)
+		case types.ContractV2_:
+			if err := blc.accountState.UpdateContractFrom(tx, block.Height); err != nil {
+				return err
+			}
+			if err := blc.runner.RunContract(tx, block.Height, block.Time); err != nil {
+				return err
+			}
 			/*case types.VoteToCandidate:
 				fallthrough
-			case types.LoginCandidate:
+			case types.LoginCandidate_:
 				fallthrough
 			case types.LogoutCandidate:
 				if err := blc.accountState.UpdateFrom(tx, block.Height); err != nil {
@@ -322,11 +341,11 @@ func (blc *BlockChain) updateState(block *types.Block) error {
 func (blc *BlockChain) updateGenesisState(block *types.Block) error {
 	for _, tx := range block.Body.Transactions {
 		switch tx.GetTxType() {
-		case types.Transfer:
+		case types.Transfer_:
 			if err := blc.accountState.UpdateTransferTo(tx, block.Height); err != nil {
 				return err
 			}
-		case types.TransferV2:
+		case types.TransferV2_:
 			if err := blc.accountState.UpdateTransferV2To(tx, block.Height); err != nil {
 				return err
 			}
@@ -435,10 +454,10 @@ func (blc *BlockChain) verifyTx(tx types.ITransaction, blockHeight uint64) error
 
 func (blc *BlockChain) verifyBusiness(tx types.ITransaction, blockHeight uint64) error {
 	switch tx.GetTxType() {
-	case types.Transfer:
+	case types.Transfer_:
 		account := blc.accountState.GetAccountState(tx.From())
 		return account.VerifyNonce(tx.GetNonce())
-	case types.TransferV2:
+	case types.TransferV2_:
 		account := blc.accountState.GetAccountState(tx.From())
 		return account.VerifyNonce(tx.GetNonce())
 	}

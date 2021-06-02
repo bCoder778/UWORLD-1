@@ -20,6 +20,8 @@ type IAccount interface {
 	ContractChangeTo(*Receiver, hasharry.Address, uint64) error
 	FeesChange(uint64, uint64)
 	ConsumptionChange(uint64, uint64)
+	TransferOut(token hasharry.Address, amount, height uint64) error
+	TransferIn(token hasharry.Address, amount, height uint64) error
 	VerifyTxState(ITransaction) error
 	VerifyNonce(uint64) error
 	IsEmpty() bool

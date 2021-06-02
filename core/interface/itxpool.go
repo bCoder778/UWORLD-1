@@ -1,4 +1,4 @@
-package core
+package _interface
 
 import (
 	"github.com/uworldao/UWORLD/common/hasharry"

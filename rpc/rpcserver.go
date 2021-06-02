@@ -8,15 +8,14 @@ import (
 	"github.com/uworldao/UWORLD/common/utils"
 	"github.com/uworldao/UWORLD/config"
 	"github.com/uworldao/UWORLD/consensus"
-	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
+	"github.com/uworldao/UWORLD/core/runner"
 	coreTypes "github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/crypto/certgen"
 	log "github.com/uworldao/UWORLD/log/log15"
 	"github.com/uworldao/UWORLD/p2p"
-	"github.com/uworldao/UWORLD/param"
 	"github.com/uworldao/UWORLD/rpc/rpctypes"
 	"github.com/uworldao/UWORLD/services/reqmgr"
-	"github.com/uworldao/UWORLD/ut"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -29,18 +28,20 @@ import (
 
 type Server struct {
 	config        *config.RpcConfig
-	txPool        core.ITxPool
-	accountState  core.IAccountState
-	contractState core.IContractState
+	txPool        _interface.ITxPool
+	accountState  _interface.IAccountState
+	contractState _interface.IContractState
+	runner        *runner.ContractRunner
 	consensus     consensus.IConsensus
-	chain         core.IBlockChain
+	chain         _interface.IBlockChain
 	grpcServer    *grpc.Server
 	peerManager   p2p.IPeerManager
 	peers         reqmgr.Peers
 }
 
-func NewServer(config *config.RpcConfig, txPool core.ITxPool, state core.IAccountState, contractState core.IContractState,
-	consensus consensus.IConsensus, chain core.IBlockChain, peerManager p2p.IPeerManager, peers reqmgr.Peers) *Server {
+func NewServer(config *config.RpcConfig, txPool _interface.ITxPool, state _interface.IAccountState, contractState _interface.IContractState,
+	runner *runner.ContractRunner, consensus consensus.IConsensus, chain _interface.IBlockChain, peerManager p2p.IPeerManager,
+	peers reqmgr.Peers) *Server {
 	return &Server{config: config, txPool: txPool, accountState: state, contractState: contractState,
 		consensus: consensus, chain: chain, peerManager: peerManager, peers: peers}
 }
@@ -119,9 +120,6 @@ func (rs *Server) SendTransaction(_ context.Context, req *Bytes) (*Response, err
 }
 
 func (rs *Server) GetAccount(_ context.Context, req *Address) (*Response, error) {
-	if !ut.CheckUWDAddress(param.Net, req.Address) {
-		return NewResponse(rpctypes.RpcErrParam, nil, fmt.Sprintf("%s address check failed", req.Address)), nil
-	}
 	addr := hasharry.StringToAddress(req.Address)
 	account := rs.accountState.GetAccountState(addr)
 	rpcAccount := rpctypes.TranslateAccountToRpcAccount(account.(*coreTypes.Account))
@@ -137,29 +135,28 @@ func (rs *Server) GetTransaction(ctx context.Context, req *Hash) (*Response, err
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrParam, nil, "hash error"), nil
 	}
-	var confirmed bool
-	var height uint64
 	tx, err := rs.chain.GetTransaction(hash)
 	if err != nil {
-		tx, err = rs.txPool.GetTransaction(hash)
-		if err != nil {
-			return NewResponse(rpctypes.RpcErrBlockChain, nil, err.Error()), nil
-		}
-	} else {
-		confirmedHeight := rs.chain.GetConfirmedHeight()
-		index, err := rs.chain.GetTransactionIndex(hash)
-		if err != nil {
-			return NewResponse(rpctypes.RpcErrBlockChain, nil, fmt.Sprintf("%s is not exist", hash.String())), nil
-		}
-		height = index.GetHeight()
-		confirmed = confirmedHeight >= height
+		return NewResponse(rpctypes.RpcErrBlockChain, nil, err.Error()), nil
 	}
-	rpcTx, _ := coreTypes.TranslateTxToRpcTx(tx.(*coreTypes.Transaction))
+	confirmed := rs.chain.GetConfirmedHeight()
+	index, err := rs.chain.GetTransactionIndex(hash)
+	if err != nil {
+		return NewResponse(rpctypes.RpcErrBlockChain, nil, fmt.Sprintf("%s is not exist", hash.String())), nil
+	}
+	height := index.GetHeight()
+	var rpcTx *coreTypes.RpcTransaction
+	state, _ := rs.chain.GetContractState(hash)
+	if state != nil {
+		rpcTx, _ = coreTypes.TranslateContractV2TxToRpcTx(tx.(*coreTypes.Transaction), state)
+	} else {
+		rpcTx, _ = coreTypes.TranslateTxToRpcTx(tx.(*coreTypes.Transaction))
+	}
 	rsMsg := &coreTypes.RpcTransactionConfirmed{
 		TxHead:    rpcTx.TxHead,
 		TxBody:    rpcTx.TxBody,
 		Height:    height,
-		Confirmed: confirmed,
+		Confirmed: confirmed >= height,
 	}
 	bytes, _ := json.Marshal(rsMsg)
 	return NewResponse(rpctypes.RpcSuccess, bytes, ""), nil
@@ -174,7 +171,7 @@ func (rs *Server) GetBlockByHash(ctx context.Context, req *Hash) (*Response, err
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrBlockChain, nil, err.Error()), nil
 	}
-	rpcBlock, _ := coreTypes.TranslateBlockToRpcBlock(block, rs.chain.GetConfirmedHeight())
+	rpcBlock, _ := coreTypes.TranslateBlockToRpcBlock(block, rs.chain.GetConfirmedHeight(), rs.chain.GetContractState)
 	bytes, err := json.Marshal(rpcBlock)
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrMarshal, nil, err.Error()), nil
@@ -188,7 +185,7 @@ func (rs *Server) GetBlockByHeight(_ context.Context, req *Height) (*Response, e
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrBlockChain, nil, err.Error()), nil
 	}
-	rpcBlock, _ := coreTypes.TranslateBlockToRpcBlock(block, rs.chain.GetConfirmedHeight())
+	rpcBlock, _ := coreTypes.TranslateBlockToRpcBlock(block, rs.chain.GetConfirmedHeight(), rs.chain.GetContractState)
 	bytes, err := json.Marshal(rpcBlock)
 	if err != nil {
 		return NewResponse(rpctypes.RpcErrMarshal, nil, err.Error()), nil
@@ -252,6 +249,15 @@ func (rs *Server) NodeInfo(context.Context, *Null) (*Response, error) {
 	node := rs.peers.NodeInfo()
 	nodeJson, _ := json.Marshal(node)
 	return NewResponse(rpctypes.RpcSuccess, nodeJson, ""), nil
+}
+
+func (rs *Server) GetExchangePairs(ctx context.Context, req *Address) (*Response, error) {
+	pairs, err := rs.runner.ExchangePair(hasharry.StringToAddress(req.Address))
+	if err != nil {
+		return NewResponse(rpctypes.RpcErrContract, nil, err.Error()), nil
+	}
+	bytes, _ := json.Marshal(pairs)
+	return NewResponse(rpctypes.RpcSuccess, bytes, ""), nil
 }
 
 func NewResponse(code int32, result []byte, err string) *Response {

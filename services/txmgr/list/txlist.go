@@ -2,7 +2,7 @@ package list
 
 import (
 	"fmt"
-	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/types"
 	"sync"
 	"time"
@@ -22,7 +22,7 @@ type TxList struct {
 	// Ready to be packaged as a block transaction list.
 	preparedTxs *TxSortedMap
 	storage     ITxPoolStorage
-	state       core.IAccountState
+	state       _interface.IAccountState
 	mutex       sync.RWMutex
 }
 
@@ -35,7 +35,7 @@ type ITxPoolStorage interface {
 	Close() error
 }
 
-func NewTxList(state core.IAccountState, storage ITxPoolStorage) *TxList {
+func NewTxList(state _interface.IAccountState, storage ITxPoolStorage) *TxList {
 	return &TxList{
 		preparedTxs: NewTxSortedMap(),
 		futureTxs:   NewFutureTxList(),

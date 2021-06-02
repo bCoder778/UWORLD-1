@@ -94,6 +94,32 @@ func CheckUWDAddress(version string, addr string) bool {
 	return bytes.Compare(checkSum, checkBytesHashed2[0:4]) == 0
 }
 
+func GenerateContractV2Address(net string, bytes []byte) (string, error) {
+	ver := []byte{}
+	switch net {
+	case param.MainNet:
+		ver = append(ver, param.MainPubKeyHashTokenID[0:]...)
+	case param.TestNet:
+		ver = append(ver, param.TestPubKeyHashTokenID[0:]...)
+	default:
+		return "", errors.New("wrong network")
+	}
+	buffBytes := bytes
+	hashed := hash.Hash(buffBytes)
+	hash160, err := hash.Hash160(hashed.Bytes())
+	if err != nil {
+		return "", err
+	}
+
+	addNet := append(ver, hash160...)
+	hashed1 := hash.Hash(addNet)
+	hashed2 := hash.Hash(hashed1.Bytes())
+	checkSum := hashed2[0:4]
+	hashedCheck1 := append(addNet, checkSum...)
+	code58 := base58.Encode(hashedCheck1)
+	return hasharry.StringToAddress(code58).String(), nil
+}
+
 // Generate contract address
 func GenerateContractAddress(net string, address string, abbr string) (string, error) {
 	ver := []byte{}

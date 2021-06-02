@@ -1,4 +1,4 @@
-package core
+package _interface
 
 import (
 	"github.com/uworldao/UWORLD/common/hasharry"
@@ -31,6 +31,10 @@ type IAccountState interface {
 	UpdateConfirmedHeight(height uint64)
 
 	VerifyState(tx types.ITransaction) error
+
+	Transfer(from, to, token hasharry.Address, amount, height uint64) error
+
+	PreTransfer(from, to, token hasharry.Address, amount, height uint64) error
 
 	StateTrieCommit() (hasharry.Hash, error)
 

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/uworldao/UWORLD/common/hasharry"
+	"github.com/uworldao/UWORLD/core/types/contractv2"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 )
 
 type IRpcTransactionBody interface {
@@ -54,7 +56,7 @@ func TranslateRpcTxToTx(rpcTx *RpcTransaction) (*Transaction, error) {
 	}
 	var txBody ITransactionBody
 	switch rpcTx.TxHead.TxType {
-	case Transfer:
+	case Transfer_:
 		body := &RpcTransferBody{}
 		bytes, err := json.Marshal(rpcTx.TxBody)
 		if err != nil {
@@ -65,7 +67,7 @@ func TranslateRpcTxToTx(rpcTx *RpcTransaction) (*Transaction, error) {
 			return nil, err
 		}
 		txBody, err = translateRpcNormalBodyToBody(body)
-	case TransferV2:
+	case TransferV2_:
 		body := &RpcTransferV2Body{}
 		bytes, err := json.Marshal(rpcTx.TxBody)
 		if err != nil {
@@ -76,8 +78,8 @@ func TranslateRpcTxToTx(rpcTx *RpcTransaction) (*Transaction, error) {
 			return nil, err
 		}
 		txBody, err = translateRpcTransferV2BodyToBody(body)
-	case ContractTransaction:
-		body := &RpcContractTransactionBody{}
+	case Contract_:
+		body := &RpcContractBody{}
 		bytes, err := json.Marshal(rpcTx.TxBody)
 		if err != nil {
 			return nil, err
@@ -87,7 +89,9 @@ func TranslateRpcTxToTx(rpcTx *RpcTransaction) (*Transaction, error) {
 			return nil, err
 		}
 		txBody, err = translateRpcContractBodyToBody(body)
-		/*case types.LoginCandidate:
+	case ContractV2_:
+		txBody, err = translateRpcContractV2BodyToBody(rpcTx.TxBody)
+		/*case types.LoginCandidate_:
 			txBody, err = translateRpcLoginBodyToBody(rpcTx.LoginBody)
 		case types.LogoutCandidate:
 			txBody = &types.LogoutTransactionBody{}
@@ -111,6 +115,7 @@ func TranslateRpcTxToTx(rpcTx *RpcTransaction) (*Transaction, error) {
 }
 
 func TranslateTxToRpcTx(tx *Transaction) (*RpcTransaction, error) {
+	var err error
 	rpcTx := &RpcTransaction{
 		TxHead: &RpcTransactionHead{
 			TxHash: tx.Hash().String(),
@@ -127,13 +132,13 @@ func TranslateTxToRpcTx(tx *Transaction) (*RpcTransaction, error) {
 		TxBody: nil,
 	}
 	switch tx.GetTxType() {
-	case Transfer:
+	case Transfer_:
 		rpcTx.TxBody = &RpcTransferBody{
 			Contract: tx.GetTxBody().GetContract().String(),
 			To:       tx.GetTxBody().ToAddress().ReceiverList()[0].Address.String(),
 			Amount:   tx.GetTxBody().GetAmount(),
 		}
-	case TransferV2:
+	case TransferV2_:
 		rpcBody := &RpcTransferV2Body{
 			Contract:  tx.GetTxBody().GetContract().String(),
 			Receivers: make([]RpcReceiver, 0),
@@ -145,8 +150,8 @@ func TranslateTxToRpcTx(tx *Transaction) (*RpcTransaction, error) {
 			})
 		}
 		rpcTx.TxBody = rpcBody
-	case ContractTransaction:
-		rpcTx.TxBody = &RpcContractTransactionBody{
+	case Contract_:
+		rpcTx.TxBody = &RpcContractBody{
 			Contract:    tx.GetTxBody().GetContract().String(),
 			To:          tx.GetTxBody().ToAddress().ReceiverList()[0].Address.String(),
 			Name:        tx.GetTxBody().GetName(),
@@ -155,7 +160,16 @@ func TranslateTxToRpcTx(tx *Transaction) (*RpcTransaction, error) {
 			Increase:    tx.GetTxBody().GetIncreaseSwitch(),
 			Amount:      tx.GetTxBody().GetAmount(),
 		}
-	case LoginCandidate:
+	case ContractV2_:
+		body, ok := tx.GetTxBody().(*TxContractV2Body)
+		if !ok {
+			return nil, errors.New("wrong transaction body")
+		}
+		rpcTx.TxBody, err = translateContractV2ToRpcContractV2(body)
+		if err != nil {
+			return nil, err
+		}
+	case LoginCandidate_:
 		rpcTx.TxBody = &RpcLoginTransactionBody{
 			PeerId: string(tx.GetTxBody().GetPeerId()),
 		}
@@ -167,6 +181,297 @@ func TranslateTxToRpcTx(tx *Transaction) (*RpcTransaction, error) {
 	}
 
 	return rpcTx, nil
+}
+
+func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*TxContractV2Body, error) {
+	if rpcBody == nil {
+		return nil, errors.New("wrong contract transaction body")
+	}
+	body := &RpcContractV2TransactionBody{}
+	bytes, err := json.Marshal(rpcBody)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(bytes, body)
+	if err != nil {
+		return nil, err
+	}
+	switch body.FunctionType {
+	case contractv2.Exchange_Init:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		init := &RpcExchangeInitBody{
+			Admin: "",
+			FeeTo: "",
+		}
+		err = json.Unmarshal(bytes, init)
+		if err != nil {
+			return nil, err
+		}
+		return &TxContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &exchange_func.ExchangeInitBody{
+				Admin: hasharry.StringToAddress(init.Admin),
+				FeeTo: hasharry.StringToAddress(init.FeeTo),
+			},
+		}, nil
+	case contractv2.Exchange_SetAdmin:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		setBody := &RpcExchangeSetAdminBody{
+			Address: "",
+		}
+		err = json.Unmarshal(bytes, setBody)
+		if err != nil {
+			return nil, err
+		}
+		return &TxContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &exchange_func.ExchangeAdmin{
+				Address: hasharry.StringToAddress(setBody.Address),
+			},
+		}, nil
+	case contractv2.Exchange_SetFeeTo:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		setBody := &RpcExchangeSetFeeToBody{
+			Address: "",
+		}
+		err = json.Unmarshal(bytes, setBody)
+		if err != nil {
+			return nil, err
+		}
+		return &TxContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &exchange_func.ExchangeFeeTo{
+				Address: hasharry.StringToAddress(setBody.Address),
+			},
+		}, nil
+	case contractv2.Exchange_ExactIn:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		inBody := &RpcExchangeExactInBody{}
+		err = json.Unmarshal(bytes, inBody)
+		if err != nil {
+			return nil, err
+		}
+		return &TxContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &exchange_func.ExactIn{
+				AmountIn:     inBody.AmountIn,
+				AmountOutMin: inBody.AmountOutMin,
+				Path:         addrListToHashAddr(inBody.Path),
+				To:           hasharry.StringToAddress(inBody.To),
+				Deadline:     inBody.Deadline,
+			},
+		}, nil
+	case contractv2.Exchange_ExactOut:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		outBody := &RpcExchangeExactOutBody{}
+		err = json.Unmarshal(bytes, outBody)
+		if err != nil {
+			return nil, err
+		}
+		return &TxContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &exchange_func.ExactOut{
+				AmountOut:   outBody.AmountOut,
+				AmountInMax: outBody.AmountInMax,
+				Path:        addrListToHashAddr(outBody.Path),
+				To:          hasharry.StringToAddress(outBody.To),
+				Deadline:    outBody.Deadline,
+			},
+		}, nil
+	case contractv2.Pair_Create:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		createBody := &RpcExchangePairCreate{}
+		err = json.Unmarshal(bytes, createBody)
+		if err != nil {
+			return nil, err
+		}
+		amountADesired, _ := NewAmount(createBody.AmountADesired)
+		amountBDesired, _ := NewAmount(createBody.AmountBDesired)
+		amountAMin, _ := NewAmount(createBody.AmountAMin)
+		amountBMin, _ := NewAmount(createBody.AmountBMin)
+		return &TxContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &exchange_func.ExchangePairCreate{
+				Exchange:       hasharry.StringToAddress(createBody.Exchange),
+				TokenA:         hasharry.StringToAddress(createBody.TokenA),
+				TokenB:         hasharry.StringToAddress(createBody.TokenB),
+				To:             hasharry.StringToAddress(createBody.To),
+				AmountADesired: amountADesired,
+				AmountBDesired: amountBDesired,
+				AmountAMin:     amountAMin,
+				AmountBMin:     amountBMin,
+			},
+		}, nil
+	}
+	return nil, errors.New("wrong transaction body")
+}
+
+func TranslateContractV2TxToRpcTx(tx *Transaction, state *ContractV2State) (*RpcTransaction, error) {
+	var err error
+	rpcTx := &RpcTransaction{
+		TxHead: &RpcTransactionHead{
+			TxHash: tx.Hash().String(),
+			TxType: tx.GetTxType(),
+			From:   addressToString(tx.From()),
+			Nonce:  tx.GetNonce(),
+			Fees:   tx.GetFees(),
+			Time:   tx.GetTime(),
+			Note:   tx.GetNote(),
+			SignScript: &RpcSignScript{
+				Signature: hex.EncodeToString(tx.GetSignScript().Signature),
+				PubKey:    hex.EncodeToString(tx.GetSignScript().PubKey),
+			}},
+		TxBody: nil,
+	}
+	switch tx.GetTxType() {
+	case ContractV2_:
+		body, ok := tx.GetTxBody().(*TxContractV2Body)
+		if !ok {
+			return nil, errors.New("wrong transaction body")
+		}
+		rpcTx.TxBody, err = translateToRpcContractV2WithState(body, state)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return rpcTx, nil
+}
+
+func translateToRpcContractV2WithState(body *TxContractV2Body, contractState *ContractV2State) (*RpcContractV2BodyWithState, error) {
+	var state = Contract_Wait
+	var message string
+	if contractState != nil {
+		state = contractState.State
+		message = contractState.Message
+	}
+
+	funcBody, err := rpcFunction(body)
+	if err != nil {
+		return nil, err
+	}
+	return &RpcContractV2BodyWithState{
+		Contract:     body.Contract.String(),
+		Type:         body.Type,
+		FunctionType: body.FunctionType,
+		Function:     funcBody,
+		State:        state,
+		Message:      message,
+	}, nil
+}
+
+func translateContractV2ToRpcContractV2(body *TxContractV2Body) (*RpcContractV2TransactionBody, error) {
+	funcBody, err := rpcFunction(body)
+	if err != nil {
+		return nil, err
+	}
+	return &RpcContractV2TransactionBody{
+		Contract:     body.Contract.String(),
+		Type:         body.Type,
+		FunctionType: body.FunctionType,
+		Function:     funcBody,
+	}, nil
+}
+
+func rpcFunction(body *TxContractV2Body) (IRCFunction, error) {
+	var function IRCFunction
+	switch body.FunctionType {
+	case contractv2.Exchange_Init:
+		funcBody, ok := body.Function.(*exchange_func.ExchangeInitBody)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		function = &RpcExchangeInitBody{
+			Admin: funcBody.Admin.String(),
+			FeeTo: funcBody.FeeTo.String(),
+		}
+	case contractv2.Exchange_SetAdmin:
+		funcBody, ok := body.Function.(*exchange_func.ExchangeAdmin)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		function = &RpcExchangeSetAdminBody{
+			Address: funcBody.Address.String(),
+		}
+	case contractv2.Exchange_SetFeeTo:
+		funcBody, ok := body.Function.(*exchange_func.ExchangeFeeTo)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		function = &RpcExchangeSetFeeToBody{
+			Address: funcBody.Address.String(),
+		}
+	case contractv2.Exchange_ExactIn:
+		funcBody, ok := body.Function.(*exchange_func.ExactIn)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		function = &RpcExchangeExactInBody{
+			AmountIn:     funcBody.AmountIn,
+			AmountOutMin: funcBody.AmountOutMin,
+			Path:         hashAddrToAddr(funcBody.Path),
+			To:           funcBody.To.String(),
+			Deadline:     funcBody.Deadline,
+		}
+	case contractv2.Exchange_ExactOut:
+		funcBody, ok := body.Function.(*exchange_func.ExactOut)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		function = &RpcExchangeExactOutBody{
+			AmountOut:   funcBody.AmountOut,
+			AmountInMax: funcBody.AmountInMax,
+			Path:        hashAddrToAddr(funcBody.Path),
+			To:          funcBody.To.String(),
+			Deadline:    funcBody.Deadline,
+		}
+	case contractv2.Pair_Create:
+		funcBody, ok := body.Function.(*exchange_func.ExchangePairCreate)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		function = &RpcExchangePairCreate{
+			Exchange:       funcBody.Exchange.String(),
+			TokenA:         funcBody.TokenA.String(),
+			TokenB:         funcBody.TokenB.String(),
+			To:             funcBody.To.String(),
+			AmountADesired: Amount(funcBody.AmountADesired).ToCoin(),
+			AmountBDesired: Amount(funcBody.AmountBDesired).ToCoin(),
+			AmountAMin:     Amount(funcBody.AmountAMin).ToCoin(),
+			AmountBMin:     Amount(funcBody.AmountBMin).ToCoin(),
+		}
+	}
+	return function, nil
 }
 
 func TranslateRpcSignScriptToSignScript(rpcSignScript *RpcSignScript) (*SignScript, error) {
@@ -216,7 +521,7 @@ func translateRpcTransferV2BodyToBody(rpcBody *RpcTransferV2Body) (*TransferV2Bo
 	return txBody, nil
 }
 
-func translateRpcContractBodyToBody(rpcBody *RpcContractTransactionBody) (*ContractBody, error) {
+func translateRpcContractBodyToBody(rpcBody *RpcContractBody) (*ContractBody, error) {
 	if rpcBody == nil {
 		return nil, errors.New("wrong contract transaction body")
 	}
@@ -254,4 +559,20 @@ func addressToString(address hasharry.Address) string {
 		return CoinBase
 	}
 	return address.String()
+}
+
+func addrListToHashAddr(addrList []string) []hasharry.Address {
+	hashList := make([]hasharry.Address, len(addrList))
+	for i, addr := range addrList {
+		hashList[i] = hasharry.StringToAddress(addr)
+	}
+	return hashList
+}
+
+func hashAddrToAddr(hashList []hasharry.Address) []string {
+	addrList := make([]string, len(hashList))
+	for i, hash := range hashList {
+		addrList[i] = hash.String()
+	}
+	return addrList
 }

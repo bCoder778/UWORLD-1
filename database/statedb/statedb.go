@@ -44,7 +44,7 @@ func (s *StateStorage) GetAccountState(stateKey hasharry.Address) types.IAccount
 	bytes := s.stateTrie.Get(stateKey.Bytes())
 	err := rlp.DecodeBytes(bytes, &account)
 	if err != nil {
-		return account
+		return types.NewAccount(stateKey)
 	}
 	return account
 }

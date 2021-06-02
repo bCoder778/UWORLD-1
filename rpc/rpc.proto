@@ -30,6 +30,7 @@ service Greeter {
   rpc GetConfirmedHeight(Null)returns (Response) {}
   rpc Peers(Null)returns (Response) {}
   rpc NodeInfo(Null)returns (Response) {}
+  rpc GetExchangePairs(Address)returns (Response){}
 }
 
 // The request message containing the user's name.

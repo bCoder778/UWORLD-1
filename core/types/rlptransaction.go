@@ -1,36 +1,90 @@
 package types
 
-import "github.com/uworldao/UWORLD/common/encode/rlp"
+import (
+	"github.com/uworldao/UWORLD/common/encode/rlp"
+	"github.com/uworldao/UWORLD/common/hasharry"
+	"github.com/uworldao/UWORLD/core/types/contractv2"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
+)
 
 type RlpTransaction struct {
 	TxHead *TransactionHead
 	TxBody []byte
 }
 
+type RlpContract struct {
+	TxHead *TransactionHead
+	TxBody RlpContractBody
+}
+
+type RlpContractBody struct {
+	Contract     hasharry.Address
+	Type         contractv2.ContractType
+	FunctionType contractv2.FunctionType
+	Function     []byte
+	State        ContractState
+	Message      string
+}
+
 func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
 	switch rt.TxHead.TxType {
-	case Transfer:
+	case Transfer_:
 		var nt *TransferBody
 		rlp.DecodeBytes(rt.TxBody, &nt)
 		return &Transaction{
 			TxHead: rt.TxHead,
 			TxBody: nt,
 		}
-	case TransferV2:
+	case TransferV2_:
 		var nt *TransferV2Body
 		rlp.DecodeBytes(rt.TxBody, &nt)
 		return &Transaction{
 			TxHead: rt.TxHead,
 			TxBody: nt,
 		}
-	case ContractTransaction:
+	case Contract_:
 		var ct *ContractBody
 		rlp.DecodeBytes(rt.TxBody, &ct)
 		return &Transaction{
 			TxHead: rt.TxHead,
 			TxBody: ct,
 		}
-	case LoginCandidate:
+	case ContractV2_:
+		var ct = &TxContractV2Body{}
+		var rlpCt *RlpContractBody
+		rlp.DecodeBytes(rt.TxBody, &rlpCt)
+		switch rlpCt.FunctionType {
+		case contractv2.Exchange_Init:
+			var init *exchange_func.ExchangeInitBody
+			rlp.DecodeBytes(rlpCt.Function, &init)
+			ct.Function = init
+		case contractv2.Exchange_SetAdmin:
+			var set *exchange_func.ExchangeAdmin
+			rlp.DecodeBytes(rlpCt.Function, &set)
+			ct.Function = set
+		case contractv2.Exchange_SetFeeTo:
+			var set *exchange_func.ExchangeFeeTo
+			rlp.DecodeBytes(rlpCt.Function, &set)
+			ct.Function = set
+		case contractv2.Exchange_ExactIn:
+			var in *exchange_func.ExactIn
+			rlp.DecodeBytes(rlpCt.Function, &in)
+			ct.Function = in
+		case contractv2.Exchange_ExactOut:
+			var out *exchange_func.ExactOut
+			rlp.DecodeBytes(rlpCt.Function, &out)
+			ct.Function = out
+		case contractv2.Pair_Create:
+			var create *exchange_func.ExchangePairCreate
+			rlp.DecodeBytes(rlpCt.Function, &create)
+			ct.Function = create
+		}
+		rlp.DecodeBytes(rt.TxBody, &ct)
+		return &Transaction{
+			TxHead: rt.TxHead,
+			TxBody: ct,
+		}
+	case LoginCandidate_:
 		var nt *LoginTransactionBody
 		rlp.DecodeBytes(rt.TxBody, &nt)
 		return &Transaction{

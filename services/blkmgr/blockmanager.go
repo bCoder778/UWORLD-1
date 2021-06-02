@@ -6,6 +6,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/uworldao/UWORLD/consensus"
 	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/types"
 	log "github.com/uworldao/UWORLD/log/log15"
 	"github.com/uworldao/UWORLD/p2p"
@@ -19,7 +20,7 @@ const syncInterval = 1000
 
 // Block management, synchronization and sending new blocks
 type BlockManager struct {
-	blockChain  core.IBlockChain
+	blockChain  _interface.IBlockChain
 	peerManager p2p.IPeerManager
 	syncPeer    *p2p.PeerInfo
 	network     Network
@@ -38,7 +39,7 @@ type ICreateStream interface {
 	CreateStream(peerId peer.ID) (network.Stream, error)
 }
 
-func NewBlockManager(blockChain core.IBlockChain, peerManager p2p.IPeerManager, network Network, consensus consensus.IConsensus,
+func NewBlockManager(blockChain _interface.IBlockChain, peerManager p2p.IPeerManager, network Network, consensus consensus.IConsensus,
 	revBlkCh chan *types.Block, genBlkCh chan *types.Block, minerWokCh chan bool, createStream ICreateStream) *BlockManager {
 	return &BlockManager{
 		blockChain:  blockChain,

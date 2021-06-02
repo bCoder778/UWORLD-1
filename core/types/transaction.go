@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/uworldao/UWORLD/common/encode/rlp"
 	hash2 "github.com/uworldao/UWORLD/common/hasharry"
+	"github.com/uworldao/UWORLD/core/types/contractv2"
+	"github.com/uworldao/UWORLD/core/types/functionbody/exchange_func"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
 	"github.com/uworldao/UWORLD/crypto/hash"
 	"github.com/uworldao/UWORLD/param"
@@ -13,10 +15,11 @@ import (
 )
 
 const (
-	Transfer TransactionType = iota
-	ContractTransaction
-	LoginCandidate
-	TransferV2
+	Transfer_ TransactionType = iota
+	Contract_
+	LoginCandidate_
+	TransferV2_
+	ContractV2_
 	/*LogoutCandidate
 	VoteToCandidate*/
 )
@@ -122,11 +125,11 @@ func (t *Transaction) VerifyCoinBaseTx(height, sumFees uint64) error {
 func (t *Transaction) verifyTxFees() error {
 	var fees uint64
 	switch t.TxHead.TxType {
-	case Transfer:
+	case Transfer_:
 		fees = param.Fees
-	case TransferV2:
+	case TransferV2_:
 		fees = TransferFees(len(t.TxBody.ToAddress().ReceiverList()))
-	case ContractTransaction:
+	case Contract_:
 		fees = param.TokenConsumption
 	}
 	if t.TxHead.Fees != fees {
@@ -149,15 +152,15 @@ func (t *Transaction) verifyTxSinger() error {
 func (t *Transaction) verifyTxSize() error {
 	// TODO change maxsize
 	switch t.TxHead.TxType {
-	case Transfer:
+	case Transfer_:
 		fallthrough
-	case TransferV2:
+	case TransferV2_:
 		fallthrough
-	case ContractTransaction:
+	case Contract_:
 		return nil
 		/*case LogoutCandidate:
 			fallthrough
-		case LoginCandidate:
+		case LoginCandidate_:
 			fallthrough
 		case VoteToCandidate:
 			if t.Size() > MaxNoDataTxSize {
@@ -193,15 +196,15 @@ func (t *Transaction) verifyTxFrom() error {
 
 func (t *Transaction) verifyTxType() error {
 	switch t.TxHead.TxType {
-	case Transfer:
+	case Transfer_:
 		return nil
-	case TransferV2:
+	case TransferV2_:
 		return nil
-	case ContractTransaction:
+	case Contract_:
 		return nil
 		/*case VoteToCandidate:
 			return nil
-		case LoginCandidate:
+		case LoginCandidate_:
 			return nil
 		case LogoutCandidate:
 			return nil*/
@@ -316,7 +319,48 @@ func (t *Transaction) GetTxBody() ITransactionBody {
 func (t *Transaction) TranslateToRlpTransaction() *RlpTransaction {
 	rlpTx := &RlpTransaction{}
 	rlpTx.TxHead = t.TxHead
-	rlpTx.TxBody, _ = rlp.EncodeToBytes(t.TxBody)
+	switch t.GetTxType() {
+	case ContractV2_:
+		body, _ := t.TxBody.(*TxContractV2Body)
+		rlpC := &RlpContract{
+			TxHead: t.TxHead,
+			TxBody: RlpContractBody{
+				Contract:     body.Contract,
+				Type:         body.Type,
+				FunctionType: body.FunctionType,
+				Function:     nil,
+			},
+		}
+		switch body.FunctionType {
+		case contractv2.Exchange_Init:
+			function, _ := body.Function.(*exchange_func.ExchangeInitBody)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Exchange_SetAdmin:
+			function, _ := body.Function.(*exchange_func.ExchangeAdmin)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Exchange_SetFeeTo:
+			function, _ := body.Function.(*exchange_func.ExchangeFeeTo)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Exchange_ExactIn:
+			function, _ := body.Function.(*exchange_func.ExactIn)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Exchange_ExactOut:
+			function, _ := body.Function.(*exchange_func.ExactOut)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Pair_Create:
+			function, _ := body.Function.(*exchange_func.ExchangePairCreate)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		}
+		rlpTx.TxBody, _ = rlp.EncodeToBytes(rlpC.TxBody)
+	default:
+		rlpTx.TxBody, _ = rlp.EncodeToBytes(t.TxBody)
+	}
 	return rlpTx
 }
 

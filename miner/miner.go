@@ -3,7 +3,7 @@ package miner
 import (
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/consensus"
-	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
 	log "github.com/uworldao/UWORLD/log/log15"
@@ -22,8 +22,8 @@ type Miner struct {
 	// Node address
 	signer      hasharry.Address
 	consensus   consensus.IConsensus
-	blockChain  core.IBlockChain
-	txPool      core.ITxPool
+	blockChain  _interface.IBlockChain
+	txPool      _interface.ITxPool
 	recvBlock   chan *types.Block
 	genBlkCh    chan *types.Block
 	minerWorkCh chan bool
@@ -31,7 +31,7 @@ type Miner struct {
 	isStop      chan bool
 }
 
-func NewMiner(consensus consensus.IConsensus, blockChain core.IBlockChain, txPool core.ITxPool, key *secp256k1.PrivateKey, signer hasharry.Address,
+func NewMiner(consensus consensus.IConsensus, blockChain _interface.IBlockChain, txPool _interface.ITxPool, key *secp256k1.PrivateKey, signer hasharry.Address,
 	genBlkCh chan *types.Block, minerWorkCh chan bool) *Miner {
 	return &Miner{
 		signer:      signer,
@@ -161,7 +161,7 @@ func (miner *Miner) generateCoinBaseTx(coinBase uint64) types.ITransaction {
 	return &types.Transaction{
 		TxHead: &types.TransactionHead{
 			TxHash:     hasharry.Hash{},
-			TxType:     types.Transfer,
+			TxType:     types.Transfer_,
 			From:       hasharry.StringToAddress(types.CoinBase),
 			Nonce:      0,
 			Fees:       0,

@@ -84,7 +84,7 @@ func (dpos *DPos) GetGenesisBlock() *types.Block {
 		tx := &types.Transaction{
 			TxHead: &types.TransactionHead{
 				TxHash:     hasharry.Hash{},
-				TxType:     types.LoginCandidate,
+				TxType:     types.LoginCandidate_,
 				From:       hasharry.StringToAddress(info.Address),
 				Nonce:      0,
 				Fees:       0,
@@ -103,7 +103,7 @@ func (dpos *DPos) GetGenesisBlock() *types.Block {
 		tx := &types.Transaction{
 			TxHead: &types.TransactionHead{
 				TxHash:     hasharry.Hash{},
-				TxType:     types.Transfer,
+				TxType:     types.Transfer_,
 				From:       hasharry.StringToAddress(info.Address),
 				Nonce:      0,
 				Fees:       0,
@@ -429,7 +429,7 @@ func (dpos *DPos) updateGenesisDPosStorage(chain consensus.IChain) error {
 func (dpos *DPos) UpdateConsensus(block *types.Block) {
 	for _, tx := range block.Transactions {
 		switch tx.GetTxType() {
-		case types.LoginCandidate:
+		case types.LoginCandidate_:
 			candidate := &types.Candidate{
 				Signer: tx.From(),
 				PeerId: string(tx.GetTxBody().GetPeerId()),

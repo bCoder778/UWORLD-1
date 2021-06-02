@@ -9,6 +9,8 @@ import (
 	"github.com/uworldao/UWORLD/consensus"
 	"github.com/uworldao/UWORLD/consensus/dpos"
 	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
+	runner2 "github.com/uworldao/UWORLD/core/runner"
 	"github.com/uworldao/UWORLD/core/types"
 	log "github.com/uworldao/UWORLD/log/log15"
 	"github.com/uworldao/UWORLD/miner"
@@ -21,8 +23,6 @@ import (
 	"github.com/uworldao/UWORLD/services/peermgr"
 	"github.com/uworldao/UWORLD/services/reqmgr"
 	"github.com/uworldao/UWORLD/services/txmgr"
-	"sync"
-	"time"
 )
 
 type Node struct {
@@ -30,22 +30,20 @@ type Node struct {
 	// Local p2p information
 	localNode   *p2p.PeerInfo
 	p2pServer   *p2p.P2pServer
-	txPool      core.ITxPool
+	txPool      _interface.ITxPool
 	peerManager p2p.IPeerManager
 	blockManger *blkmgr.BlockManager
-	blockChain  core.IBlockChain
+	blockChain  _interface.IBlockChain
 	consensus   consensus.IConsensus
 	network     blkmgr.Network
 	// Node private key information
 	private   *config.NodePrivate
 	rpcServer *rpc.Server
-	peerInfo  []*types.NodeInfo
-	mutex     sync.RWMutex
 }
 
 func NewNode(cfg *config.Config) (*Node, error) {
 	var err error
-	node := &Node{peerInfo: make([]*types.NodeInfo, 0)}
+	node := &Node{}
 	revBlkCh := make(chan *types.Block, 100)
 	genBlkCh := make(chan *types.Block, 20)
 	revTxCh := make(chan types.ITransaction, 50)
@@ -69,17 +67,17 @@ func NewNode(cfg *config.Config) (*Node, error) {
 		return nil, fmt.Errorf("create dpos failed! err:%s", err)
 	}
 
-	if node.blockChain, err = core.NewBlockChain(cfg.DataDir, node.consensus, stateUpdateChan, removeTxsCh, accountState, contractState); err != nil {
+	runner := runner2.NewContractRunner(accountState, contractState)
+	if node.blockChain, err = core.NewBlockChain(cfg.DataDir, node.consensus, stateUpdateChan, removeTxsCh, accountState, contractState, runner); err != nil {
 		return nil, fmt.Errorf("create block chain failed! err:%s", err)
 	}
-
 	node.network = reqmgr.NewRequestManger(node.blockChain, revBlkCh, revTxCh, node)
 
 	if node.p2pServer, err = p2p.NewP2pServer(cfg, node.localNode, node.peerManager, node.network); err != nil {
 		return nil, fmt.Errorf("create p2p server failed! err:%s", err)
 	}
 
-	node.txPool = txmgr.NewTxPool(cfg, accountState, contractState, node.consensus, node.peerManager, node.network, revTxCh, stateUpdateChan, removeTxsCh, node.p2pServer)
+	node.txPool = txmgr.NewTxPool(cfg, accountState, contractState, node.consensus, node.peerManager, node.network, runner, revTxCh, stateUpdateChan, removeTxsCh, node.p2pServer, node.blockChain.GetLastHeight)
 
 	if err := node.consensus.Init(node.blockChain); err != nil {
 		return nil, fmt.Errorf("init consensus failed! err:%s", err)
@@ -89,7 +87,7 @@ func NewNode(cfg *config.Config) (*Node, error) {
 	node.blockManger = blkmgr.NewBlockManager(node.blockChain, node.peerManager, node.network, node.consensus, revBlkCh, genBlkCh, minerWorkCh, node.p2pServer)
 	node.private = cfg.NodePrivate
 	rpcConfig := &config.RpcConfig{DataDir: cfg.DataDir, RpcPort: cfg.RpcPort, RpcTLS: cfg.RpcTLS, RpcCert: cfg.RpcCert, RpcPass: cfg.RpcPass}
-	node.rpcServer = rpc.NewServer(rpcConfig, node.txPool, accountState, contractState, node.consensus, node.blockChain, node.peerManager, node)
+	node.rpcServer = rpc.NewServer(rpcConfig, node.txPool, accountState, contractState, runner, node.consensus, node.blockChain, node.peerManager, node)
 
 	if cfg.FallBackTo != config.DefaultFallBack && cfg.FallBackTo > 0 {
 		if err := node.blockChain.FallBackTo(uint64(cfg.FallBackTo)); err != nil {
@@ -127,8 +125,6 @@ func (n *Node) Start() error {
 	}
 
 	go n.peerManager.Check()
-
-	go n.updatePeers()
 
 	return nil
 }
@@ -170,44 +166,15 @@ func (n *Node) NodeInfo() *types.NodeInfo {
 }
 
 func (n *Node) PeersInfo() []*types.NodeInfo {
-	n.mutex.RLock()
-	defer n.mutex.RUnlock()
-
-	return n.peerInfo
-}
-
-func (n *Node) updatePeers() {
-	t := time.NewTicker(time.Second * 60 * 1)
-	defer t.Stop()
-
-	for {
-		select {
-		case <-t.C:
-			n.clearPeerInfo()
-			peers := n.peerManager.Peers()
-			for _, peer := range peers {
-				streamCreator := p2p.StreamCreator{PeerId: peer.PeerId, NewStreamFunc: peer.NewStreamFunc}
-				if nodeInfo, err := n.network.GetNodeInfo(&streamCreator); err != nil {
-					continue
-				} else {
-					n.insertPeerInfo(nodeInfo)
-				}
-			}
+	peerNodeInfos := make([]*types.NodeInfo, 0)
+	peers := n.peerManager.Peers()
+	for _, peer := range peers {
+		streamCreator := p2p.StreamCreator{PeerId: peer.PeerId, NewStreamFunc: peer.NewStreamFunc}
+		if nodeInfo, err := n.network.GetNodeInfo(&streamCreator); err != nil {
+			continue
+		} else {
+			peerNodeInfos = append(peerNodeInfos, nodeInfo)
 		}
 	}
-
-}
-
-func (n *Node) insertPeerInfo(info *types.NodeInfo) {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	n.peerInfo = append(n.peerInfo, info)
-}
-
-func (n *Node) clearPeerInfo() {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	n.peerInfo = make([]*types.NodeInfo, 0)
+	return peerNodeInfos
 }

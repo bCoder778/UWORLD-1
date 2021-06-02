@@ -29,7 +29,7 @@ func init() {
 
 var SendContractCmd = &cobra.Command{
 	Use:     "SendContract {from} {to} {name} {abbr} {Increase} {description} {amount} {note} {password} {nonce}; Send contract of coin publish;",
-	Aliases: []string{"sendcontract", "sc"},
+	Aliases: []string{"sendcontract", "SC", "sc"},
 	Short:   "SendContract {from} {to} {name} {abbr} {Increase} {description} {amount} {note} {password} {nonce}; Send contract of coin publish;",
 	Example: `
 	SendContract 3ajDJUnMYDyzXLwefRfNp7yLcdmg3ULb9ndQ 3ajNkh7yVYkETL9JKvGx3aL2YVNrqksjCUUE "Test Coin" TC false "description" 1000  "transaction note"

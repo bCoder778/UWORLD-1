@@ -3,7 +3,7 @@ package reqmgr
 import (
 	"encoding/json"
 	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/uworldao/UWORLD/core"
+	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/types"
 	log "github.com/uworldao/UWORLD/log/log15"
 	"sync"
@@ -13,7 +13,7 @@ import (
 type requestfunc func(*RWRequest) (*Response, error)
 
 type RequestManager struct {
-	blockChain  core.IBlockChain
+	blockChain  _interface.IBlockChain
 	requestChan chan *RWRequest
 	recBlkCh    chan *types.Block
 	recTx       chan types.ITransaction
@@ -26,7 +26,7 @@ type Peers interface {
 	NodeInfo() *types.NodeInfo
 }
 
-func NewRequestManger(blockChain core.IBlockChain, recBlkCh chan *types.Block, recTx chan types.ITransaction, peers Peers) *RequestManager {
+func NewRequestManger(blockChain _interface.IBlockChain, recBlkCh chan *types.Block, recTx chan types.ITransaction, peers Peers) *RequestManager {
 	return &RequestManager{
 		blockChain:  blockChain,
 		requestChan: make(chan *RWRequest, 1000),

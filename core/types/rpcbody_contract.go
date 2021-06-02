@@ -1,6 +1,6 @@
 package types
 
-type RpcContractTransactionBody struct {
+type RpcContractBody struct {
 	Contract    string `json:"contract"`
 	To          string `json:"to"`
 	Name        string `json:"name"`

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/uworldao/UWORLD/common/hasharry"
-	"github.com/uworldao/UWORLD/crypto/hash"
 	"github.com/uworldao/UWORLD/param"
 )
 
@@ -18,75 +17,28 @@ type Account struct {
 	ConfirmedNonce  uint64
 	ConfirmedTime   uint64
 	Coins           *Coins
-	JournalIn       *journalIn
-	JournalOut      *journalOut
+	OutJournal      *outJournal
+	InJournal       *inJournal
 }
 
-// Calculate user status key
-/*func AccountStateKey(address []byte, others ...[]byte) hasharry.Hash {
-	for _, other := range others {
-		address = append(address, other...)
-	}
-	return hash.Hash(address)
-}*/
-
-func AccountStateKeyString(address []byte, others ...[]byte) string {
-	for _, other := range others {
-		address = append(address, other...)
-	}
-	hash := hash.Hash(address)
-	return hash.String()
-}
-
-func NewAccount(key hasharry.Address) *Account {
+func NewAccount(stateKey hasharry.Address) *Account {
 	coin := &CoinAccount{
-		Contract:  param.Token.String(),
-		Balance:   0,
-		LockedIn:  0,
-		LockedOut: 0,
+		Contract: param.Token.String(),
+		Balance:  0,
+		LockOut:  0,
+		LockIn:   0,
 	}
 	return &Account{
-		Address:         key,
+		Address:         stateKey,
 		Nonce:           0,
 		Time:            0,
 		ConfirmedHeight: 0,
 		ConfirmedNonce:  0,
 		ConfirmedTime:   0,
 		Coins:           &Coins{coin},
-		JournalIn:       newJournalIn(),
-		JournalOut:      newJournalOut(),
+		OutJournal:      newOutJournal(),
+		InJournal:       newInJournal(),
 	}
-}
-
-func (a *Account) FallBack(height uint64) error {
-	if height < a.ConfirmedHeight {
-		return errors.New("too small fall back height")
-	}
-	if height > a.ConfirmedHeight {
-		if err := a.Update(height); err != nil {
-			return err
-		}
-	}
-	a.Nonce = a.ConfirmedNonce
-	a.Time = a.ConfirmedTime
-	amounts := a.JournalIn.Amount()
-	for contract, amount := range amounts {
-		coinAccount, ok := a.Coins.Get(contract)
-		if !ok {
-			return errors.New("wrong journal")
-		}
-		coinAccount.Balance += amount
-	}
-
-	for i, coinAccount := range *a.Coins {
-		coinAccount.LockedOut = 0
-		coinAccount.LockedIn = 0
-		(*a.Coins)[i] = coinAccount
-	}
-
-	a.JournalIn = newJournalIn()
-	a.JournalOut = newJournalOut()
-	return nil
 }
 
 // Calculate the available balance of the current account based on the current effective block height
@@ -94,57 +46,57 @@ func (a *Account) Update(confirmedHeight uint64) error {
 	confirmedNonce := a.ConfirmedNonce
 	confirmedTime := a.ConfirmedTime
 	// Update through the account transfer log information
-	for _, in := range a.JournalIn.GetJournalIns(confirmedHeight) {
-		coinAccount, ok := a.Coins.Get(in.Contract)
+	for _, out := range a.OutJournal.GetJournalOuts(confirmedHeight) {
+		coinAccount, ok := a.Coins.Get(out.Contract)
 		if !ok {
 			return errors.New("wrong journal")
 		}
-		if coinAccount.LockedIn >= in.Amount {
-			coinAccount.LockedIn -= in.Amount
+		if coinAccount.LockOut >= out.Amount {
+			coinAccount.LockOut -= out.Amount
 			a.Coins.Set(coinAccount)
 
 			tokenAccount, ok := a.Coins.Get(param.Token.String())
 			if !ok {
 				return errors.New("wrong journal")
 			}
-			if tokenAccount.LockedIn >= in.Fees {
-				tokenAccount.LockedIn -= in.Fees
+			if tokenAccount.LockOut >= out.Fees {
+				tokenAccount.LockOut -= out.Fees
 				a.Coins.Set(tokenAccount)
 			} else {
-				return errors.New("locked in amount not enough when update account journal")
+				return errors.New("locked out amount not enough when update account journal")
 			}
-			a.JournalIn.Remove(in.Height)
+			a.OutJournal.Remove(out.Height)
 
 		} else {
-			return errors.New("locked in amount not enough when update account journal")
+			return errors.New("locked out amount not enough when update account journal")
 		}
 
-		if in.Nonce > confirmedNonce {
-			confirmedNonce = in.Nonce
+		if out.Nonce > confirmedNonce {
+			confirmedNonce = out.Nonce
 		}
-		if in.Time > confirmedTime {
-			confirmedTime = in.Time
+		if out.Time > confirmedTime {
+			confirmedTime = out.Time
 		}
 	}
 
 	// Update through account transfer log information
-	for _, out := range a.JournalOut.GetJournalOuts(confirmedHeight) {
-		coinAccount, ok := a.Coins.Get(out.Contract)
+	for _, in := range a.InJournal.GetJournalIns(confirmedHeight) {
+		coinAccount, ok := a.Coins.Get(in.Contract)
 		if !ok {
 			coinAccount = &CoinAccount{
-				Contract:  out.Contract,
-				Balance:   0,
-				LockedIn:  0,
-				LockedOut: 0,
+				Contract: in.Contract,
+				Balance:  0,
+				LockOut:  0,
+				LockIn:   0,
 			}
 		}
-		if coinAccount.LockedOut >= out.Amount {
-			coinAccount.Balance += out.Amount
-			coinAccount.LockedOut -= out.Amount
+		if coinAccount.LockIn >= in.Amount {
+			coinAccount.Balance += in.Amount
+			coinAccount.LockIn -= in.Amount
 			a.Coins.Set(coinAccount)
-			a.JournalOut.Remove(out.Height, out.Contract)
+			a.InJournal.Remove(in.Height, in.Contract)
 		} else {
-			return errors.New("locked out amount not enough when update account Journal")
+			return errors.New("locked in amount not enough when update account Journal")
 		}
 	}
 	a.ConfirmedHeight = confirmedHeight
@@ -165,7 +117,7 @@ func (a *Account) IsExist() bool {
 // the transfer-out and transfer-in are 0, no update is required.
 func (a *Account) IsNeedUpdate() bool {
 	for _, coinContract := range *a.Coins {
-		if coinContract.LockedIn != 0 || coinContract.LockedOut != 0 {
+		if coinContract.LockOut != 0 || coinContract.LockIn != 0 {
 			return true
 		}
 	}
@@ -210,11 +162,11 @@ func (a *Account) ContractChangeFrom(tx ITransaction, blockHeight uint64) error 
 		return ErrNotEnoughFees
 	}
 	uwd.Balance -= fees
-	uwd.LockedIn += fees
+	uwd.LockOut += fees
 	a.Coins.Set(uwd)
 	a.Nonce = tx.GetNonce()
 	a.Time = tx.GetTime()
-	a.JournalIn.Add(tx, blockHeight, param.Token, 0, fees)
+	a.OutJournal.Add(blockHeight, param.Token, 0, fees, tx.GetNonce(), tx.GetTime())
 	return nil
 }
 
@@ -237,11 +189,11 @@ func (a *Account) changeUWDTransferFrom(tx ITransaction, blockHeight uint64) err
 	}
 
 	uwd.Balance -= amount
-	uwd.LockedIn += amount
+	uwd.LockOut += amount
 	a.Coins.Set(uwd)
 	a.Nonce = tx.GetNonce()
 	a.Time = tx.GetTime()
-	a.JournalIn.Add(tx, blockHeight, param.Token, amount-fees, fees)
+	a.OutJournal.Add(blockHeight, param.Token, amount-fees, fees, tx.GetNonce(), tx.GetTime())
 	return nil
 }
 
@@ -264,11 +216,11 @@ func (a *Account) changeUWDTransferV2From(tx ITransaction, blockHeight uint64) e
 	}
 
 	uwd.Balance -= amount + fees
-	uwd.LockedIn += amount + fees
+	uwd.LockOut += amount + fees
 	a.Coins.Set(uwd)
 	a.Nonce = tx.GetNonce()
 	a.Time = tx.GetTime()
-	a.JournalIn.Add(tx, blockHeight, param.Token, amount, fees)
+	a.OutJournal.Add(blockHeight, param.Token, amount, fees, tx.GetNonce(), tx.GetTime())
 	return nil
 }
 
@@ -297,14 +249,14 @@ func (a *Account) changeCoinTransferFrom(tx ITransaction, blockHeight uint64) er
 	}
 
 	tokenAccount.Balance -= fees
-	tokenAccount.LockedIn += fees
+	tokenAccount.LockOut += fees
 	coinAccount.Balance -= amount
-	coinAccount.LockedIn += amount
+	coinAccount.LockOut += amount
 	a.Coins.Set(tokenAccount)
 	a.Coins.Set(coinAccount)
 	a.Nonce = tx.GetNonce()
 	a.Time = tx.GetTime()
-	a.JournalIn.Add(tx, blockHeight, contract, amount, fees)
+	a.OutJournal.Add(blockHeight, contract, amount, fees, tx.GetNonce(), tx.GetTime())
 	return nil
 }
 
@@ -317,17 +269,17 @@ func (a *Account) ContractChangeTo(re *Receiver, contract hasharry.Address, bloc
 	amount := re.Amount
 	coinAccount, ok := a.Coins.Get(contract.String())
 	if ok {
-		coinAccount.LockedOut += amount
+		coinAccount.LockIn += amount
 	} else {
 		coinAccount = &CoinAccount{
-			Contract:  contract.String(),
-			Balance:   0,
-			LockedOut: amount,
-			LockedIn:  0,
+			Contract: contract.String(),
+			Balance:  0,
+			LockIn:   amount,
+			LockOut:  0,
 		}
 	}
 	a.Coins.Set(coinAccount)
-	a.JournalOut.Add(contract, re.Amount, blockHeight)
+	a.InJournal.Add(contract, re.Amount, blockHeight)
 	return nil
 }
 
@@ -336,7 +288,7 @@ func (a *Account) TransferChangeTo(re *Receiver, fees uint64, contract hasharry.
 	if !a.IsExist() {
 		a.Address = re.Address
 	}
-	/*	if tx.GetTxType() == ContractTransaction {
+	/*	if tx.GetTxType() == Contract_ {
 		return a.toContractChange(tx, blockHeight)
 	}*/
 
@@ -346,17 +298,17 @@ func (a *Account) TransferChangeTo(re *Receiver, fees uint64, contract hasharry.
 
 	coinAccount, ok := a.Coins.Get(contract.String())
 	if ok {
-		coinAccount.LockedOut += re.Amount
+		coinAccount.LockIn += re.Amount
 	} else {
 		coinAccount = &CoinAccount{
-			Contract:  contract.String(),
-			Balance:   0,
-			LockedIn:  0,
-			LockedOut: re.Amount,
+			Contract: contract.String(),
+			Balance:  0,
+			LockOut:  0,
+			LockIn:   re.Amount,
 		}
 	}
 	a.Coins.Set(coinAccount)
-	a.JournalOut.Add(contract, re.Amount, blockHeight)
+	a.InJournal.Add(contract, re.Amount, blockHeight)
 	return nil
 }
 
@@ -365,7 +317,7 @@ func (a *Account) TransferV2ChangeTo(re *Receiver, contract hasharry.Address, bl
 	if !a.IsExist() {
 		a.Address = re.Address
 	}
-	/*	if tx.GetTxType() == ContractTransaction {
+	/*	if tx.GetTxType() == Contract_ {
 		return a.toContractChange(tx, blockHeight)
 	}*/
 
@@ -375,17 +327,145 @@ func (a *Account) TransferV2ChangeTo(re *Receiver, contract hasharry.Address, bl
 
 	coinAccount, ok := a.Coins.Get(contract.String())
 	if ok {
-		coinAccount.LockedOut += re.Amount
+		coinAccount.LockIn += re.Amount
 	} else {
 		coinAccount = &CoinAccount{
-			Contract:  contract.String(),
-			Balance:   0,
-			LockedIn:  0,
-			LockedOut: re.Amount,
+			Contract: contract.String(),
+			Balance:  0,
+			LockOut:  0,
+			LockIn:   re.Amount,
 		}
 	}
 	a.Coins.Set(coinAccount)
-	a.JournalOut.Add(contract, re.Amount, blockHeight)
+	a.InJournal.Add(contract, re.Amount, blockHeight)
+	return nil
+}
+
+func (a *Account) TransferOut(token hasharry.Address, amount, height uint64) error {
+	tokenInfo, ok := a.Coins.Get(token.String())
+	if !ok {
+		return ErrNotEnoughBalance
+	}
+	if tokenInfo.Balance < amount {
+		return ErrNotEnoughBalance
+	}
+	tokenInfo.Balance -= amount
+	tokenInfo.LockOut += amount
+	a.Coins.Set(tokenInfo)
+	a.OutJournal.Add(height, token, amount, 0, 0, 0)
+	return nil
+}
+
+func (a *Account) TransferIn(token hasharry.Address, amount, height uint64) error {
+	tokenInfo, ok := a.Coins.Get(token.String())
+	if ok {
+		tokenInfo.LockIn += amount
+	} else {
+		tokenInfo = &CoinAccount{
+			Contract: token.String(),
+			Balance:  0,
+			LockIn:   amount,
+			LockOut:  0,
+		}
+	}
+	a.Coins.Set(tokenInfo)
+	a.InJournal.Add(token, amount, height)
+	return nil
+}
+
+// Change the status of the secondary account of the transaction transfer party.
+// The transaction of the secondary account needs to consume the fee of the
+// primary account.
+func (a *Account) fromCoinChange(tx ITransaction, blockHeight uint64) error {
+	fees := tx.GetFees()
+	txBody := tx.GetTxBody()
+	amount := txBody.GetAmount()
+	contract := txBody.GetContract()
+	tokenAccount, ok := a.Coins.Get(param.Token.String())
+	if !ok {
+		return errors.New("account is not exist")
+	}
+	if tokenAccount.Balance < fees {
+		return ErrNotEnoughFees
+	}
+
+	coinAccount, ok := a.Coins.Get(contract.String())
+	if !ok {
+		return errors.New("account is not exist")
+	}
+	if coinAccount.Balance < amount {
+		return ErrNotEnoughBalance
+	}
+
+	tokenAccount.Balance -= fees
+	tokenAccount.LockOut += fees
+	coinAccount.Balance -= amount
+	coinAccount.LockOut += amount
+	a.Coins.Set(tokenAccount)
+	a.Coins.Set(coinAccount)
+	a.Nonce = tx.GetNonce()
+	a.Time = tx.GetTime()
+	a.OutJournal.Add(blockHeight, contract, amount, fees, tx.GetNonce(), tx.GetTime())
+	return nil
+}
+
+// Change of contract information
+func (a *Account) fromContractChange(tx ITransaction, blockHeight uint64) error {
+	fees := tx.GetFees()
+	tokenAccount, ok := a.Coins.Get(param.Token.String())
+	if !ok {
+		return errors.New("account is not exist")
+	}
+	if tokenAccount.Balance < fees {
+		return ErrNotEnoughFees
+	}
+	tokenAccount.Balance -= fees
+	tokenAccount.LockOut += fees
+	a.Coins.Set(tokenAccount)
+	a.Nonce = tx.GetNonce()
+	a.Time = tx.GetTime()
+	a.OutJournal.Add(blockHeight, param.Token, 0, fees, tx.GetNonce(), tx.GetTime())
+	return nil
+}
+
+// Change of contract information
+func (a *Account) fromContractV2Change(tx ITransaction, blockHeight uint64) error {
+	fees := tx.GetFees()
+	tokenAccount, ok := a.Coins.Get(param.Token.String())
+	if !ok {
+		return errors.New("account is not exist")
+	}
+	if tokenAccount.Balance < fees {
+		return ErrNotEnoughFees
+	}
+	tokenAccount.Balance -= fees
+	tokenAccount.LockOut += fees
+	a.Coins.Set(tokenAccount)
+	a.Nonce = tx.GetNonce()
+	a.Time = tx.GetTime()
+	a.OutJournal.Add(blockHeight, param.Token, 0, fees, tx.GetNonce(), tx.GetTime())
+	return nil
+}
+
+// Change of contract information
+func (a *Account) toContractChange(tx ITransaction, blockHeight uint64) error {
+	txBody := tx.GetTxBody()
+	amount := txBody.GetAmount()
+	contract := txBody.GetContract()
+	coinAccount, ok := a.Coins.Get(contract.String())
+	if ok {
+		coinAccount.LockIn += amount
+	} else {
+		coinAccount = &CoinAccount{
+			Contract: contract.String(),
+			Balance:  0,
+			LockIn:   amount,
+			LockOut:  0,
+		}
+	}
+
+	a.Coins.Set(coinAccount)
+	a.InJournal.Add(txBody.GetContract(), txBody.GetAmount(), blockHeight)
 	return nil
 }
 
@@ -395,17 +475,17 @@ func (a *Account) FeesChange(fees, blockHeight uint64) {
 	}
 	coinAccount, ok := a.Coins.Get(param.Token.String())
 	if ok {
-		coinAccount.LockedOut += fees
+		coinAccount.LockIn += fees
 	} else {
 		coinAccount = &CoinAccount{
-			Contract:  param.Token.String(),
-			Balance:   0,
-			LockedIn:  0,
-			LockedOut: fees,
+			Contract: param.Token.String(),
+			Balance:  0,
+			LockOut:  0,
+			LockIn:   fees,
 		}
 	}
 	a.Coins.Set(coinAccount)
-	a.JournalOut.Add(param.Token, fees, blockHeight)
+	a.InJournal.Add(param.Token, fees, blockHeight)
 }
 
 func (a *Account) ConsumptionChange(consumption, blockHeight uint64) {
@@ -414,17 +494,17 @@ func (a *Account) ConsumptionChange(consumption, blockHeight uint64) {
 	}
 	coinAccount, ok := a.Coins.Get(param.Token.String())
 	if ok {
-		coinAccount.LockedOut += consumption
+		coinAccount.LockIn += consumption
 	} else {
 		coinAccount = &CoinAccount{
-			Contract:  param.Token.String(),
-			Balance:   0,
-			LockedIn:  0,
-			LockedOut: consumption,
+			Contract: param.Token.String(),
+			Balance:  0,
+			LockOut:  0,
+			LockIn:   consumption,
 		}
 	}
 	a.Coins.Set(coinAccount)
-	a.JournalOut.Add(param.Token, consumption, blockHeight)
+	a.InJournal.Add(param.Token, consumption, blockHeight)
 }
 
 // To verify the transaction status, the nonce value of the transaction
@@ -451,19 +531,19 @@ func (a *Account) VerifyTxState(tx ITransaction) error {
 
 	// Verify the balance of the token
 	switch tx.GetTxType() {
-	case Transfer:
+	case Transfer_:
 		if tx.GetTxBody().GetContract() == param.Token {
 			return a.verifyTokenTxBalance(tx)
 		} else {
 			return a.verifyCoinTxBalance(tx)
 		}
-	case TransferV2:
+	case TransferV2_:
 		if tx.GetTxBody().GetContract() == param.Token {
 			return a.verifyTransferV2TokenBalance(tx)
 		} else {
 			return a.verifyCoinTxBalance(tx)
 		}
-	case ContractTransaction:
+	case Contract_:
 		return a.verifyFees(tx)
 	default:
 		if tx.GetTxBody().GetAmount() != 0 {
@@ -471,7 +551,15 @@ func (a *Account) VerifyTxState(tx ITransaction) error {
 		}
 		return a.verifyFees(tx)
 	}
+}
 
+func (a *Account) verifyTransferV2TokenBalance(tx ITransaction) error {
+	tokenAccount, ok := a.Coins.Get(param.Token.String())
+	if !ok {
+		return ErrNotEnoughBalance
+	} else if tokenAccount.Balance < (tx.GetTxBody().GetAmount() + tx.GetFees()) {
+		return ErrNotEnoughBalance
+	}
 	return nil
 }
 
@@ -481,17 +569,7 @@ func (a *Account) verifyTokenTxBalance(tx ITransaction) error {
 	tokenAccount, ok := a.Coins.Get(param.Token.String())
 	if !ok {
 		return ErrNotEnoughBalance
-	} else if tokenAccount.Balance < (tx.GetTxBody().GetAmount()) {
-		return ErrNotEnoughBalance
-	}
-	return nil
-}
-
-func (a *Account) verifyTransferV2TokenBalance(tx ITransaction) error {
-	tokenAccount, ok := a.Coins.Get(param.Token.String())
-	if !ok {
-		return ErrNotEnoughBalance
-	} else if tokenAccount.Balance < (tx.GetTxBody().GetAmount() + tx.GetFees()) {
+	} else if tokenAccount.Balance < tx.GetTxBody().GetAmount() {
 		return ErrNotEnoughBalance
 	}
 	return nil
@@ -549,7 +627,7 @@ func (a *Account) GetBalance(contract string) uint64 {
 func (a *Account) GetLockedIn(contract string) uint64 {
 	coinAccount, ok := a.Coins.Get(contract)
 	if ok {
-		return coinAccount.LockedIn
+		return coinAccount.LockOut
 	}
 	return 0
 }
@@ -557,7 +635,7 @@ func (a *Account) GetLockedIn(contract string) uint64 {
 func (a *Account) GetLockedOut(contract string) uint64 {
 	coinAccount, ok := a.Coins.Get(contract)
 	if ok {
-		return coinAccount.LockedOut
+		return coinAccount.LockIn
 	}
 	return 0
 }
@@ -587,14 +665,14 @@ func (a *Account) IsEmpty() bool {
 	if a.Nonce != 0 {
 		return false
 	}
-	if !a.JournalOut.IsEmpty() {
+	if !a.InJournal.IsEmpty() {
 		return false
 	}
-	if !a.JournalIn.IsEmpty() {
+	if !a.OutJournal.IsEmpty() {
 		return false
 	}
 	for _, coin := range *a.Coins {
-		if coin.Balance != 0 || coin.LockedIn != 0 || coin.LockedOut != 0 {
+		if coin.Balance != 0 || coin.LockOut != 0 || coin.LockIn != 0 {
 			return false
 		}
 	}
@@ -602,10 +680,10 @@ func (a *Account) IsEmpty() bool {
 }
 
 type CoinAccount struct {
-	Contract  string
-	Balance   uint64
-	LockedIn  uint64
-	LockedOut uint64
+	Contract string
+	Balance  uint64
+	LockOut  uint64
+	LockIn   uint64
 }
 
 // List of secondary accounts
@@ -631,79 +709,79 @@ func (c *Coins) Set(newCoin *CoinAccount) {
 }
 
 // Account transfer log
-type journalIn struct {
-	Ins *TxInList
+type outJournal struct {
+	Outs *TxOutList
 }
 
-func newJournalIn() *journalIn {
-	return &journalIn{Ins: &TxInList{}}
+func newOutJournal() *outJournal {
+	return &outJournal{Outs: &TxOutList{}}
 }
 
-func (j *journalIn) Add(tx ITransaction, height uint64, contract hasharry.Address, amount uint64, fees uint64) {
-	j.Ins.Set(&txIn{
+func (j *outJournal) Add(height uint64, contract hasharry.Address, amount, fees, nonce, time uint64) {
+	j.Outs.Set(&txOut{
 		Contract: contract.String(),
 		Amount:   amount,
 		Fees:     fees,
-		Nonce:    tx.GetNonce(),
-		Time:     tx.GetTime(),
+		Nonce:    nonce,
+		Time:     time,
 		Height:   height,
 	})
 }
 
-func (j *journalIn) Get(height uint64) *txIn {
-	in, ok := j.Ins.Get(height)
+func (j *outJournal) Get(height uint64) *txOut {
+	out, ok := j.Outs.Get(height)
 	if ok {
-		return in
+		return out
 	}
 	return nil
 }
 
-func (j *journalIn) Remove(height uint64) uint64 {
-	tx, _ := j.Ins.Get(height)
-	j.Ins.Remove(height)
+func (j *outJournal) Remove(height uint64) uint64 {
+	tx, _ := j.Outs.Get(height)
+	j.Outs.Remove(height)
 	return tx.Amount
 }
 
-func (j *journalIn) IsExist(height uint64) bool {
-	for _, txIn := range *j.Ins {
-		if txIn.Height >= height {
+func (j *outJournal) IsExist(height uint64) bool {
+	for _, txOut := range *j.Outs {
+		if txOut.Height >= height {
 			return true
 		}
 	}
 	return false
 }
 
-func (j *journalIn) GetJournalIns(confirmedHeight uint64) []*txIn {
-	txIns := make([]*txIn, 0)
-	for _, txIn := range *j.Ins {
-		if txIn.Height <= confirmedHeight {
-			txIns = append(txIns, txIn)
+func (j *outJournal) GetJournalOuts(confirmedHeight uint64) []*txOut {
+	txOuts := make([]*txOut, 0)
+	for _, txOut := range *j.Outs {
+		if txOut.Height <= confirmedHeight {
+			txOuts = append(txOuts, txOut)
 		}
 	}
-	return txIns
+	return txOuts
 }
 
-func (j *journalIn) Amount() map[string]uint64 {
+func (j *outJournal) Amount() map[string]uint64 {
 	amounts := map[string]uint64{}
-	for _, txIn := range *j.Ins {
-		_, ok := amounts[txIn.Contract]
+	for _, txOut := range *j.Outs {
+		_, ok := amounts[txOut.Contract]
 		if ok {
-			amounts[txIn.Contract] += txIn.Amount
+			amounts[txOut.Contract] += txOut.Amount
 		} else {
-			amounts[txIn.Contract] = txIn.Amount
+			amounts[txOut.Contract] = txOut.Amount
 		}
 	}
 	return amounts
 }
 
-func (j *journalIn) IsEmpty() bool {
-	if j.Ins == nil || len(*j.Ins) == 0 {
+func (j *outJournal) IsEmpty() bool {
+	if j.Outs == nil || len(*j.Outs) == 0 {
 		return true
 	}
 	return false
 }
 
-type txIn struct {
+type txOut struct {
 	Contract string
 	Amount   uint64
 	Fees     uint64
@@ -712,30 +790,31 @@ type txIn struct {
 	Height   uint64
 }
 
-type TxInList []*txIn
+type TxOutList []*txOut
 
-func (t *TxInList) Get(height uint64) (*txIn, bool) {
-	for _, txIn := range *t {
-		if txIn.Height == height {
-			return txIn, true
+func (t *TxOutList) Get(height uint64) (*txOut, bool) {
+	for _, outIn := range *t {
+		if outIn.Height == height {
+			return outIn, true
 		}
 	}
-	return &txIn{}, false
+	return &txOut{}, false
 }
 
-func (t *TxInList) Set(txIn *txIn) {
-	for i, in := range *t {
-		if in.Height == txIn.Height {
-			(*t)[i] = txIn
+func (t *TxOutList) Set(txOut *txOut) {
+	for i, out := range *t {
+		if out.Height == txOut.Height && out.Contract == txOut.Contract {
+			(*t)[i].Amount += txOut.Amount
+			(*t)[i].Fees += txOut.Fees
 			return
 		}
 	}
-	*t = append(*t, txIn)
+	*t = append(*t, txOut)
 }
 
-func (t *TxInList) Remove(height uint64) {
-	for i, in := range *t {
-		if in.Height == height {
+func (t *TxOutList) Remove(height uint64) {
+	for i, out := range *t {
+		if out.Height == height {
 			*t = append((*t)[0:i], (*t)[i+1:]...)
 			return
 		}
@@ -743,86 +822,86 @@ func (t *TxInList) Remove(height uint64) {
 }
 
 // Account transfer log
-type journalOut struct {
-	Outs *OutList
+type inJournal struct {
+	Ins *InList
 }
 
-func newJournalOut() *journalOut {
-	return &journalOut{Outs: &OutList{}}
+func newInJournal() *inJournal {
+	return &inJournal{Ins: &InList{}}
 }
 
-func (j *journalOut) Add(contract hasharry.Address, amount, height uint64) {
-	out, ok := j.Outs.Get(height, contract.String())
+func (j *inJournal) Add(contract hasharry.Address, amount, height uint64) {
+	in, ok := j.Ins.Get(height, contract.String())
 	if ok {
-		out.Amount += amount
+		in.Amount += amount
 	} else {
-		out = &OutAmount{}
-		out.Amount = amount
-		out.Height = height
-		out.Contract = contract.String()
+		in = &InAmount{}
+		in.Amount = amount
+		in.Height = height
+		in.Contract = contract.String()
 	}
-	j.Outs.Set(out)
+	j.Ins.Set(in)
 }
 
-func (j *journalOut) Get(height uint64, contract string) *OutAmount {
-	txOut, ok := j.Outs.Get(height, contract)
+func (j *inJournal) Get(height uint64, contract string) *InAmount {
+	txIn, ok := j.Ins.Get(height, contract)
 	if ok {
-		return txOut
+		return txIn
 	}
-	return &OutAmount{0, "", 0}
+	return &InAmount{0, "", 0}
 }
 
-func (j *journalOut) IsExist(height uint64) bool {
-	for _, out := range *j.Outs {
-		if out.Height >= height {
+func (j *inJournal) IsExist(height uint64) bool {
+	for _, in := range *j.Ins {
+		if in.Height >= height {
 			return true
 		}
 	}
 	return false
 }
 
-func (j *journalOut) Remove(height uint64, contract string) *OutAmount {
-	return j.Outs.Remove(height, contract)
+func (j *inJournal) Remove(height uint64, contract string) *InAmount {
+	return j.Ins.Remove(height, contract)
 }
 
-func (j *journalOut) GetJournalOuts(confirmedHeight uint64) map[string]*OutAmount {
-	txOuts := make(map[string]*OutAmount)
-	for _, out := range *j.Outs {
-		if out.Height <= confirmedHeight {
-			key := fmt.Sprintf("%s_%d", out.Contract, out.Height)
-			txOuts[key] = out
+func (j *inJournal) GetJournalIns(confirmedHeight uint64) map[string]*InAmount {
+	txIns := make(map[string]*InAmount)
+	for _, in := range *j.Ins {
+		if in.Height <= confirmedHeight {
+			key := fmt.Sprintf("%s_%d", in.Contract, in.Height)
+			txIns[key] = in
 		}
 	}
-	return txOuts
+	return txIns
 }
 
-func (j *journalOut) IsEmpty() bool {
-	if j.Outs == nil || len(*j.Outs) == 0 {
+func (j *inJournal) IsEmpty() bool {
+	if j.Ins == nil || len(*j.Ins) == 0 {
 		return true
 	}
 	return false
 }
 
-type OutAmount struct {
+type InAmount struct {
 	Amount   uint64
 	Contract string
 	Height   uint64
 }
 
-type OutList []*OutAmount
+type InList []*InAmount
 
-func (o *OutList) Get(height uint64, contract string) (*OutAmount, bool) {
-	for _, out := range *o {
-		if out.Height == height && out.Contract == contract {
-			return out, true
+func (o *InList) Get(height uint64, contract string) (*InAmount, bool) {
+	for _, in := range *o {
+		if in.Height == height && in.Contract == contract {
+			return in, true
 		}
 	}
-	return &OutAmount{}, false
+	return &InAmount{}, false
 }
 
-func (o *OutList) Set(outAmount *OutAmount) {
-	for i, out := range *o {
-		if out.Height == outAmount.Height && out.Contract == outAmount.Contract {
+func (o *InList) Set(outAmount *InAmount) {
+	for i, in := range *o {
+		if in.Height == outAmount.Height && in.Contract == outAmount.Contract {
 			(*o)[i] = outAmount
 			return
 		}
@@ -830,11 +909,11 @@ func (o *OutList) Set(outAmount *OutAmount) {
 	*o = append(*o, outAmount)
 }
 
-func (o *OutList) Remove(height uint64, contract string) *OutAmount {
-	for i, out := range *o {
-		if out.Height == height && out.Contract == contract {
+func (o *InList) Remove(height uint64, contract string) *InAmount {
+	for i, in := range *o {
+		if in.Height == height && in.Contract == contract {
 			*o = append((*o)[0:i], (*o)[i+1:]...)
-			return out
+			return in
 		}
 	}
 	return nil

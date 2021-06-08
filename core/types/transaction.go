@@ -131,6 +131,8 @@ func (t *Transaction) verifyTxFees() error {
 		fees = TransferFees(len(t.TxBody.ToAddress().ReceiverList()))
 	case Contract_:
 		fees = param.TokenConsumption
+	case ContractV2_:
+		fees = param.Fees
 	}
 	if t.TxHead.Fees != fees {
 		return fmt.Errorf("transaction costs %d fees", fees)
@@ -201,6 +203,8 @@ func (t *Transaction) verifyTxType() error {
 	case TransferV2_:
 		return nil
 	case Contract_:
+		return nil
+	case ContractV2_:
 		return nil
 		/*case VoteToCandidate:
 			return nil

@@ -43,7 +43,7 @@ func NewServer(config *config.RpcConfig, txPool _interface.ITxPool, state _inter
 	runner *runner.ContractRunner, consensus consensus.IConsensus, chain _interface.IBlockChain, peerManager p2p.IPeerManager,
 	peers reqmgr.Peers) *Server {
 	return &Server{config: config, txPool: txPool, accountState: state, contractState: contractState,
-		consensus: consensus, chain: chain, peerManager: peerManager, peers: peers}
+		consensus: consensus, chain: chain, peerManager: peerManager, peers: peers, runner: runner}
 }
 
 func (rs *Server) Start() error {

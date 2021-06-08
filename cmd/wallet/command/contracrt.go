@@ -91,7 +91,7 @@ func SendContract(cmd *cobra.Command, args []string) {
 	if err != nil {
 		outputError(cmd.Use, err)
 	} else if rs.Code != 0 {
-		outputRespError(cmd.Use, resp)
+		outputRespError(cmd.Use, rs)
 	} else {
 		fmt.Println()
 		fmt.Println(string(rs.Result))

@@ -43,7 +43,7 @@ func output(dataStr string) {
 }
 
 func outputRespError(cmdUser string, resp *rpc.Response) {
-	fmt.Println("ERR:"+cmdUser+" err code :%d, message :%s", resp.Code, resp.Err)
+	fmt.Printf("ERR:"+cmdUser+" code :%d, message :%s\n", resp.Code, resp.Err)
 }
 
 func outputError(cmdUser string, err error) {

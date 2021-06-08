@@ -2,7 +2,6 @@ package command
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/uworldao/UWORLD/crypto/mnemonic"
 )
@@ -31,7 +30,7 @@ var EntropyCmd = &cobra.Command{
 
 func Entropy(cmd *cobra.Command, args []string) {
 	if entropy, err := mnemonic.Entropy(); err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	} else {
 		fmt.Println()
@@ -52,7 +51,7 @@ var MnemonicCmd = &cobra.Command{
 
 func Mnemonic(cmd *cobra.Command, args []string) {
 	if mnemonic, err := mnemonic.Mnemonic(args[0]); err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	} else {
 		fmt.Println()
@@ -73,7 +72,7 @@ var MnemonicToEcCmd = &cobra.Command{
 
 func MnemonicToEc(cmd *cobra.Command, args []string) {
 	if ec, err := mnemonic.MnemonicToEc(args[0]); err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	} else {
 		fmt.Println()

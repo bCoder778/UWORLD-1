@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/uworldao/UWORLD/rpc"
 	"strconv"
@@ -37,7 +36,7 @@ func GetBlock(cmd *cobra.Command, args []string) {
 	}
 	client, err := NewRpcClient()
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	defer client.Close()
@@ -47,7 +46,7 @@ func GetBlock(cmd *cobra.Command, args []string) {
 
 	resp, err := client.Gc.GetBlockByHeight(ctx, &rpc.Height{Height: height})
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code == 0 {
@@ -61,7 +60,7 @@ func GetBlockByHash(cmd *cobra.Command, args []string) {
 	var err error
 	client, err := NewRpcClient()
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	defer client.Close()
@@ -71,7 +70,7 @@ func GetBlockByHash(cmd *cobra.Command, args []string) {
 
 	resp, err := client.Gc.GetBlockByHash(ctx, &rpc.Hash{Hash: args[0]})
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code == 0 {

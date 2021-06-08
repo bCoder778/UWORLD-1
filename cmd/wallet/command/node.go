@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/uworldao/UWORLD/rpc"
 	"time"
@@ -34,7 +33,7 @@ var GetTxPoolTxs = &cobra.Command{
 func GetTxPool(cmd *cobra.Command, args []string) {
 	client, err := NewRpcClient()
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	defer client.Close()
@@ -44,7 +43,7 @@ func GetTxPool(cmd *cobra.Command, args []string) {
 
 	resp, err := client.Gc.GetPoolTxs(ctx, &rpc.Null{})
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code == 0 {
@@ -68,7 +67,7 @@ var GetPeersCmd = &cobra.Command{
 func Peers(cmd *cobra.Command, args []string) {
 	client, err := NewRpcClient()
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	defer client.Close()
@@ -77,7 +76,7 @@ func Peers(cmd *cobra.Command, args []string) {
 	defer cancel()
 	resp, err := client.Gc.Peers(ctx, &rpc.Null{})
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code == 0 {
@@ -101,7 +100,7 @@ var GetLastHeightCmd = &cobra.Command{
 func GetLastHeight(cmd *cobra.Command, args []string) {
 	client, err := NewRpcClient()
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	defer client.Close()
@@ -110,7 +109,7 @@ func GetLastHeight(cmd *cobra.Command, args []string) {
 	defer cancel()
 	resp, err := client.Gc.GetLastHeight(ctx, &rpc.Null{})
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code == 0 {
@@ -134,7 +133,7 @@ var NodeInfoCmd = &cobra.Command{
 func NodeInfo(cmd *cobra.Command, args []string) {
 	client, err := NewRpcClient()
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	defer client.Close()
@@ -143,7 +142,7 @@ func NodeInfo(cmd *cobra.Command, args []string) {
 	defer cancel()
 	resp, err := client.Gc.NodeInfo(ctx, &rpc.Null{})
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code == 0 {

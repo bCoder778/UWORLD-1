@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/uworldao/UWORLD/cmd/wallet/config"
 	"github.com/uworldao/UWORLD/param"
@@ -44,7 +43,11 @@ func output(dataStr string) {
 }
 
 func outputRespError(cmdUser string, resp *rpc.Response) {
-	log.Errorf(cmdUser+" err code :%d, message :%s", resp.Code, resp.Err)
+	fmt.Println("ERR:"+cmdUser+" err code :%d, message :%s", resp.Code, resp.Err)
+}
+
+func outputError(cmdUser string, err error) {
+	fmt.Println("ERR:" + cmdUser + ":" + err.Error())
 }
 
 func NewRpcClient() (*rpc.Client, error) {

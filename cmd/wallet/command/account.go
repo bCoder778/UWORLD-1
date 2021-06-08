@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/uworldao/UWORLD/common/keystore"
 	"github.com/uworldao/UWORLD/crypto/ecc/secp256k1"
@@ -46,7 +45,7 @@ var GetAccountCmd = &cobra.Command{
 func GetAccount(cmd *cobra.Command, args []string) {
 	resp, err := GetAccountByRpc(args[0])
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code == 0 {
@@ -113,12 +112,12 @@ func P2PID(cmd *cobra.Command, args []string) {
 		fmt.Println("please set account password, cannot exceed 32 bytes：")
 		passWd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
 	if len(passWd) > 32 {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("password too long! "))
+		outputError(cmd.Use, fmt.Errorf("password too long! "))
 		return
 	}
 
@@ -126,17 +125,17 @@ func P2PID(cmd *cobra.Command, args []string) {
 
 	privKey, err := ReadAddrPrivate(keyFile, passWd)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		outputError(cmd.Use, fmt.Errorf("wrong password"))
 		return
 	}
 	priv, err := secp256k1.ParseStringToPrivate(privKey.Private)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong private key"))
+		outputError(cmd.Use, fmt.Errorf("wrong private key"))
 		return
 	}
 	p2pId, err := p2p.GenerateP2pId(priv)
 	if err != nil {
-		log.Errorf("generate p2p id failed! %s", err.Error())
+		outputError(cmd.Use, err)
 		return
 	}
 	fmt.Println(p2pId.String())
@@ -164,35 +163,35 @@ func CreateAccount(cmd *cobra.Command, args []string) {
 		fmt.Println("please set account password, cannot exceed 32 bytes：")
 		passWd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
 	if len(passWd) > 32 {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("password too long! "))
+		outputError(cmd.Use, fmt.Errorf("password too long! "))
 		return
 	}
 	entropy, err := ut.Entropy()
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	mnemonicStr, err := ut.Mnemonic(entropy)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	key, err := ut.MnemonicToEc(mnemonicStr)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("generate secp256k1 key failed! %s", err.Error()))
+		outputError(cmd.Use, fmt.Errorf("generate secp256k1 key failed! %s", err.Error()))
 		return
 	}
 	p2pId, err := p2p.GenerateP2pId(key)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("generate p2p id failed! %s", err.Error()))
+		outputError(cmd.Use, fmt.Errorf("generate p2p id failed! %s", err.Error()))
 	}
 	if j, err := keystore.GenerateKeyJson(Net, Cfg.KeyStoreDir, key, mnemonicStr, passWd); err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("generate key failed! %s", err.Error()))
+		outputError(cmd.Use, fmt.Errorf("generate key failed! %s", err.Error()))
 	} else {
 		j.P2pId = p2pId.String()
 		bytes, _ := json.Marshal(j)
@@ -259,7 +258,7 @@ var ShowAccountCmd = &cobra.Command{
 
 func ShowAccount(cmd *cobra.Command, args []string) {
 	if addrList, err := keystore.ReadAllAccount(Cfg.KeyStoreDir); err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("read account failed! %s", err.Error()))
+		outputError(cmd.Use, fmt.Errorf("read account failed! %s", err.Error()))
 	} else {
 		bytes, _ := json.Marshal(addrList)
 		output(string(bytes))
@@ -292,7 +291,7 @@ func DecryptAccount(cmd *cobra.Command, args []string) {
 		fmt.Println("please input password：")
 		passWd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
@@ -304,7 +303,7 @@ func DecryptAccount(cmd *cobra.Command, args []string) {
 
 	privKey, err := ReadAddrPrivate(keyFile, passWd)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		outputError(cmd.Use, fmt.Errorf("wrong password"))
 		return
 	}
 
@@ -343,7 +342,7 @@ func MnemonicToAccount(cmd *cobra.Command, args []string) {
 	var err error
 	priv, err := ut.MnemonicToEc(args[0])
 	if err != nil {
-		log.Error(cmd.Use+" err: ", errors.New("[mnemonic] wrong"))
+		outputError(cmd.Use, errors.New("[mnemonic] wrong"))
 		return
 	}
 	if len(args) == 2 && args[1] != "" {
@@ -352,20 +351,20 @@ func MnemonicToAccount(cmd *cobra.Command, args []string) {
 		fmt.Println("please set address password, cannot exceed 32 bytes：")
 		passWd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read pass word failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read pass word failed! %s", err.Error()))
 			return
 		}
 	}
 	if len(passWd) > 32 {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("password too long! "))
+		outputError(cmd.Use, fmt.Errorf("password too long! "))
 		return
 	}
 	p2pId, err := p2p.GenerateP2pId(priv)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("generate p2p id failed! %s", err.Error()))
+		outputError(cmd.Use, fmt.Errorf("generate p2p id failed! %s", err.Error()))
 	}
 	if j, err := keystore.GenerateKeyJson(Net, Cfg.KeyStoreDir, priv, args[0], passWd); err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("generate key failed! %s", err.Error()))
+		outputError(cmd.Use, fmt.Errorf("generate key failed! %s", err.Error()))
 	} else {
 		j.P2pId = p2pId.String()
 		bytes, _ := json.Marshal(j)
@@ -391,7 +390,7 @@ func EcToAccount(cmd *cobra.Command, args []string) {
 	var err error
 	priv, err := secp256k1.ParseStringToPrivate(args[0])
 	if err != nil {
-		log.Error(cmd.Use+" err: ", errors.New("[priavte] wrong"))
+		outputError(cmd.Use, errors.New("[priavte] wrong"))
 		return
 	}
 	if len(args) == 2 && args[1] != "" {
@@ -400,20 +399,20 @@ func EcToAccount(cmd *cobra.Command, args []string) {
 		fmt.Println("please set address password, cannot exceed 32 bytes：")
 		passWd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read pass word failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read pass word failed! %s", err.Error()))
 			return
 		}
 	}
 	if len(passWd) > 32 {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("password too long! "))
+		outputError(cmd.Use, fmt.Errorf("password too long! "))
 		return
 	}
 	p2pId, err := p2p.GenerateP2pId(priv)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("generate p2p id failed! %s", err.Error()))
+		outputError(cmd.Use, fmt.Errorf("generate p2p id failed! %s", err.Error()))
 	}
 	if j, err := keystore.GenerateKeyJson(Net, Cfg.KeyStoreDir, priv, "", passWd); err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("generate key failed! %s", err.Error()))
+		outputError(cmd.Use, fmt.Errorf("generate key failed! %s", err.Error()))
 	} else {
 		j.P2pId = p2pId.String()
 		bytes, _ := json.Marshal(j)

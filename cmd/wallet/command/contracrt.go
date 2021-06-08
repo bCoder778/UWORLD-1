@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/types"
@@ -51,48 +50,48 @@ func SendContract(cmd *cobra.Command, args []string) {
 		fmt.Println("please input password：")
 		passwd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
 	privKey, err := ReadAddrPrivate(getAddJsonPath(args[0]), passwd)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		outputError(cmd.Use, fmt.Errorf("wrong password"))
 		return
 	}
 
 	tx, err := parseSCParams(args)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	resp, err := GetAccountByRpc(tx.From().String())
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", resp.Code, resp.Err)
+		outputRespError(cmd.Use, resp)
 		return
 	}
 	var account *rpctypes.Account
 	if err := json.Unmarshal(resp.Result, &account); err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if tx.TxHead.Nonce == 0 {
 		tx.TxHead.Nonce = account.Nonce + 1
 	}
 	if !signTx(cmd, tx, privKey.Private) {
-		log.Error(cmd.Use+" err: ", errors.New("signature failure"))
+		outputError(cmd.Use, errors.New("signature failure"))
 		return
 	}
 
 	rs, err := sendTx(cmd, tx)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 	} else if rs.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", rs.Code, rs.Err)
+		outputRespError(cmd.Use, resp)
 	} else {
 		fmt.Println()
 		fmt.Println(string(rs.Result))
@@ -152,7 +151,7 @@ var GetContractCmd = &cobra.Command{
 func GetContract(cmd *cobra.Command, args []string) {
 	resp, err := GetContractByRpc(args[0])
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code == 0 {

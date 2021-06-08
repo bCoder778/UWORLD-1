@@ -53,46 +53,46 @@ func CreateExchange(cmd *cobra.Command, args []string) {
 		fmt.Println("please input password：")
 		passwd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
 	privKey, err := ReadAddrPrivate(getAddJsonPath(args[0]), passwd)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		outputError(cmd.Use, fmt.Errorf("wrong password"))
 		return
 	}
 	resp, err := GetAccountByRpc(args[0])
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", resp.Code, resp.Err)
+		outputRespError(cmd.Use, resp)
 		return
 	}
 	var account *rpctypes.Account
 	if err := json.Unmarshal(resp.Result, &account); err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	tx, err := parseCEParams(args, account.Nonce+1)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	if !signTx(cmd, tx, privKey.Private) {
-		log.Error(cmd.Use+" err: ", errors.New("signature failure"))
+		outputError(cmd.Use, errors.New("signature failure"))
 		return
 	}
 
 	rs, err := sendTx(cmd, tx)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 	} else if rs.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", rs.Code, rs.Err)
+		outputRespError(cmd.Use, rs)
 	} else {
 		fmt.Println()
 		fmt.Println(string(rs.Result))
@@ -139,46 +139,46 @@ func SetExchangeAdmin(cmd *cobra.Command, args []string) {
 		fmt.Println("please input password：")
 		passwd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
 	privKey, err := ReadAddrPrivate(getAddJsonPath(args[0]), passwd)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		outputError(cmd.Use, fmt.Errorf("wrong password"))
 		return
 	}
 	resp, err := GetAccountByRpc(args[0])
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", resp.Code, resp.Err)
+		outputRespError(cmd.Use, resp)
 		return
 	}
 	var account *rpctypes.Account
 	if err := json.Unmarshal(resp.Result, &account); err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	tx, err := parseSEFTSParams(args, account.Nonce+1)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	if !signTx(cmd, tx, privKey.Private) {
-		log.Error(cmd.Use+" err: ", errors.New("signature failure"))
+		outputError(cmd.Use, errors.New("signature failure"))
 		return
 	}
 
 	rs, err := sendTx(cmd, tx)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 	} else if rs.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", rs.Code, rs.Err)
+		outputRespError(cmd.Use, rs)
 	} else {
 		fmt.Println()
 		fmt.Println(string(rs.Result))
@@ -225,46 +225,46 @@ func SetExchangeFeeTo(cmd *cobra.Command, args []string) {
 		fmt.Println("please input password：")
 		passwd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
 	privKey, err := ReadAddrPrivate(getAddJsonPath(args[0]), passwd)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		outputError(cmd.Use, fmt.Errorf("wrong password"))
 		return
 	}
 	resp, err := GetAccountByRpc(args[0])
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", resp.Code, resp.Err)
+		outputRespError(cmd.Use, resp)
 		return
 	}
 	var account *rpctypes.Account
 	if err := json.Unmarshal(resp.Result, &account); err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	tx, err := parseSEFTParams(args, account.Nonce+1)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	if !signTx(cmd, tx, privKey.Private) {
-		log.Error(cmd.Use+" err: ", errors.New("signature failure"))
+		outputError(cmd.Use, errors.New("signature failure"))
 		return
 	}
 
 	rs, err := sendTx(cmd, tx)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 	} else if rs.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", rs.Code, rs.Err)
+		outputRespError(cmd.Use, rs)
 	} else {
 		fmt.Println()
 		fmt.Println(string(rs.Result))
@@ -311,46 +311,46 @@ func CreatePair(cmd *cobra.Command, args []string) {
 		fmt.Println("please input password：")
 		passwd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
 	privKey, err := ReadAddrPrivate(getAddJsonPath(args[0]), passwd)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		outputError(cmd.Use, fmt.Errorf("wrong password"))
 		return
 	}
 	resp, err := GetAccountByRpc(args[0])
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", resp.Code, resp.Err)
+		outputRespError(cmd.Use, resp)
 		return
 	}
 	var account *rpctypes.Account
 	if err := json.Unmarshal(resp.Result, &account); err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	tx, err := parseCPParams(args, account.Nonce+1)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	if !signTx(cmd, tx, privKey.Private) {
-		log.Error(cmd.Use+" err: ", errors.New("signature failure"))
+		outputError(cmd.Use, errors.New("signature failure"))
 		return
 	}
 
 	rs, err := sendTx(cmd, tx)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 	} else if rs.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", rs.Code, rs.Err)
+		outputRespError(cmd.Use, rs)
 	} else {
 		fmt.Println()
 		fmt.Println(string(rs.Result))
@@ -419,46 +419,46 @@ func SwapExactIn(cmd *cobra.Command, args []string) {
 		fmt.Println("please input password：")
 		passwd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
 	privKey, err := ReadAddrPrivate(getAddJsonPath(args[0]), passwd)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", fmt.Errorf("wrong password"))
+		outputError(cmd.Use, fmt.Errorf("wrong password"))
 		return
 	}
 	resp, err := GetAccountByRpc(args[0])
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 	if resp.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", resp.Code, resp.Err)
+		outputRespError(cmd.Use, resp)
 		return
 	}
 	var account *rpctypes.Account
 	if err := json.Unmarshal(resp.Result, &account); err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	tx, err := parseSEIParams(args, account.Nonce+1)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 		return
 	}
 
 	if !signTx(cmd, tx, privKey.Private) {
-		log.Error(cmd.Use+" err: ", errors.New("signature failure"))
+		outputError(cmd.Use, errors.New("signature failure"))
 		return
 	}
 
 	rs, err := sendTx(cmd, tx)
 	if err != nil {
-		log.Error(cmd.Use+" err: ", err)
+		outputError(cmd.Use, err)
 	} else if rs.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", rs.Code, rs.Err)
+		outputRespError(cmd.Use, rs)
 	} else {
 		fmt.Println()
 		fmt.Println(string(rs.Result))
@@ -530,7 +530,7 @@ func SwapExactOut(cmd *cobra.Command, args []string) {
 		fmt.Println("please input password：")
 		passwd, err = readPassWd()
 		if err != nil {
-			log.Error(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
+			outputError(cmd.Use+" err: ", fmt.Errorf("read password failed! %s", err.Error()))
 			return
 		}
 	}
@@ -545,7 +545,7 @@ func SwapExactOut(cmd *cobra.Command, args []string) {
 		return
 	}
 	if resp.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", resp.Code, resp.Err)
+		outputRespError(cmd.Use, resp)
 		return
 	}
 	var account *rpctypes.Account
@@ -569,7 +569,7 @@ func SwapExactOut(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Error(cmd.Use+" err: ", err)
 	} else if rs.Code != 0 {
-		log.Errorf(cmd.Use+" err: code %d, message: %s", rs.Code, rs.Err)
+		outputRespError(cmd.Use, rs)
 	} else {
 		fmt.Println()
 		fmt.Println(string(rs.Result))

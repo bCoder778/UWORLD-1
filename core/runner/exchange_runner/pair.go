@@ -252,10 +252,13 @@ func (p *PairRunner) mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
 	var liquidityValue uint64
 
 	if _totalSupply == 0 {
+		// sqrt(amount0 * amount1) - 1e3
 		liquidityBig := big.NewInt(0).Sub(big.NewInt(0).Sqrt(big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(amount1)))), big.NewInt(int64(exchange2.MINIMUM_LIQUIDITY)))
 		liquidityValue = liquidityBig.Uint64()
 		p.pair.Mint(hasharry.Address{}.String(), exchange2.MINIMUM_LIQUIDITY) // permanently lock the first MINIMUM_LIQUIDITY tokens
 	} else {
+		// valiquidityValue1 = amount0 / _reserve0 * _totalSupply
+		// valiquidityValue2 = amount1 / _reserve1 * _totalSupply
 		value1 := big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(_totalSupply)))
 		value2 := big.NewInt(0).Mul(big.NewInt(int64(amount1)), big.NewInt(int64(_totalSupply)))
 		liquidityValue = math.Min(value1.Uint64()/_reserve0, value2.Uint64()/_reserve1)
@@ -286,7 +289,7 @@ func (p *PairRunner) mintFee(_reserve0, _reserve1 uint64) (bool, error) {
 			if rootK.Cmp(rootKLast) > 0 {
 				// numerator = (rootK-rootKLast)*TotalSupply
 				numerator := big.NewInt(0).Mul(big.NewInt(0).Sub(rootK, rootKLast), big.NewInt(int64(p.pair.TotalSupply)))
-				// denominator = rootK * 5 + rootKLast
+				// denominator =  * 5 + rootKLast
 				denominator := big.NewInt(0).Add(big.NewInt(0).Mul(rootK, big.NewInt(5)), rootKLast)
 				// liquidity = numerator / denominator
 				liquidityBig := big.NewInt(0).Div(numerator, denominator)

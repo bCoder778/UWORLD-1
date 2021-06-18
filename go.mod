@@ -11,6 +11,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-stack/stack v1.8.0
 	github.com/golang/protobuf v1.4.2
+	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/jrick/logrotate v1.0.0
 	github.com/libp2p/go-libp2p v0.7.2
@@ -26,9 +27,10 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.5.1
 	github.com/ulikunitz/xz v0.5.7
-	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
-	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
-	google.golang.org/grpc v1.29.1
+	google.golang.org/genproto v0.0.0-20200513103714-09dca8ec2884
+	google.golang.org/grpc v1.33.1
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951
 )

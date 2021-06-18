@@ -24,6 +24,7 @@ var (
 	DefaultHomeDir     = utils.AppDataDir(param.AppName, false)
 	defaultP2pPort     = "33330"
 	DefaultRpcPort     = "33331"
+	DefaultHttpPort    = "33332"
 	defaultPrivateFile = "default_key.json"
 	defaultKey         = "ub_chain"
 	defaultExternalIp  = "0.0.0.0"
@@ -41,6 +42,7 @@ type Config struct {
 	Bootstrap   string `long:"bootstrap" description:"Custom bootstrap"`
 	P2pPort     string `long:"p2pport" description:"Add an interface/port to listen for connections"`
 	RpcPort     string `long:"rpcport" description:"Add an interface/port to listen for RPC connections"`
+	HttpPort    string `long:"httpport" description:"Add an interface/port to listen for HTTP connections"`
 	RpcTLS      bool   `long:"rpctls" description:"Open TLS for the RPC server -- NOTE: This is only allowed if the RPC server is bound to localhost"`
 	RpcCert     string `long:"rpccert" description:"File containing the certificate file"`
 	RpcKey      string `long:"rpckey" description:"File containing the certificate key"`
@@ -59,6 +61,7 @@ func LoadConfig() (*Config, error) {
 		HomeDir:    DefaultHomeDir,
 		P2pPort:    defaultP2pPort,
 		RpcPort:    DefaultRpcPort,
+		HttpPort:   DefaultHttpPort,
 		FallBackTo: DefaultFallBack,
 	}
 	appName := filepath.Base(os.Args[0])
@@ -105,6 +108,10 @@ func LoadConfig() (*Config, error) {
 	// rpc service listening port, if not, use the default port
 	if cfg.RpcPort == "" {
 		cfg.RpcPort = DefaultRpcPort
+	}
+
+	if cfg.HttpPort == "" {
+		cfg.HttpPort = DefaultHttpPort
 	}
 
 	if cfg.TestNet {

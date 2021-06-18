@@ -16,21 +16,83 @@ syntax = "proto3";
 
 package rpc;
 
+import "google/api/annotations.proto";
+
 // The greeting service definition.
 service Greeter {
   // Sends a greeting
-  rpc SendTransaction(Bytes)returns (Response) {}
-  rpc GetAccount(Address)returns (Response) {}
-  rpc GetTransaction(Hash)returns (Response) {}
-  rpc GetBlockByHash(Hash)returns (Response) {}
-  rpc GetBlockByHeight(Height)returns (Response) {}
-  rpc GetPoolTxs(Null)returns (Response) {}
-  rpc GetLastHeight(Null)returns (Response) {}
-  rpc GetContract(Address)returns (Response) {}
-  rpc GetConfirmedHeight(Null)returns (Response) {}
-  rpc Peers(Null)returns (Response) {}
-  rpc NodeInfo(Null)returns (Response) {}
-  rpc GetExchangePairs(Address)returns (Response){}
+  rpc SendTransaction(Bytes)returns (Response) {
+    option (google.api.http) = {
+              post: "/v1/SendTransaction"
+              body: "*"
+    };
+  }
+  rpc GetAccount(Address)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/GetAccount"
+      body: "*"
+    };
+  }
+  rpc GetTransaction(Hash)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/GetTransaction"
+      body: "*"
+    };
+  }
+  rpc GetBlockByHash(Hash)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/GetBlockByHash"
+      body: "*"
+    };
+  }
+  rpc GetBlockByHeight(Height)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/GetBlockByHeight"
+      body: "*"
+    };
+  }
+  rpc GetPoolTxs(Null)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/GetPoolTxs"
+      body: "*"
+    };
+  }
+  rpc GetLastHeight(Null)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/GetLastHeight"
+      body: "*"
+    };
+  }
+  rpc GetContract(Address)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/GetContract"
+      body: "*"
+    };
+  }
+  rpc GetConfirmedHeight(Null)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/GetConfirmedHeight"
+      body: "*"
+    };
+  }
+  rpc Peers(Null)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/Peers"
+      body: "*"
+    };
+  }
+  rpc NodeInfo(Null)returns (Response) {
+    option (google.api.http) = {
+      post: "/v1/NodeInfo"
+      body: "*"
+    };
+  }
+  rpc GetExchangePairs(Address)returns (Response){
+    option (google.api.http) = {
+      post: "/v1/GetExchangePairs"
+      body: "*"
+    };
+  }
 }
 
 // The request message containing the user's name.

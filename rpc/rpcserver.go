@@ -1,9 +1,11 @@
 package rpc
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/common/utils"
 	"github.com/uworldao/UWORLD/config"
@@ -17,13 +19,17 @@ import (
 	"github.com/uworldao/UWORLD/rpc/rpctypes"
 	"github.com/uworldao/UWORLD/services/reqmgr"
 	"golang.org/x/net/context"
+	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Server struct {
@@ -35,6 +41,7 @@ type Server struct {
 	consensus     consensus.IConsensus
 	chain         _interface.IBlockChain
 	grpcServer    *grpc.Server
+	httpServer    *http.Server
 	peerManager   p2p.IPeerManager
 	peers         reqmgr.Peers
 }
@@ -47,7 +54,14 @@ func NewServer(config *config.RpcConfig, txPool _interface.ITxPool, state _inter
 }
 
 func (rs *Server) Start() error {
+	var err error
+	var tlsConfig *tls.Config
+	endPoint := "127.0.0.1:" + rs.config.RpcPort
 	lis, err := net.Listen("tcp", ":"+rs.config.RpcPort)
+	if err != nil {
+		return err
+	}
+	httpListen, err := net.Listen("tcp", ":"+rs.config.HttpPort)
 	if err != nil {
 		return err
 	}
@@ -60,18 +74,86 @@ func (rs *Server) Start() error {
 	reflection.Register(rs.grpcServer)
 	go func() {
 		if err := rs.grpcServer.Serve(lis); err != nil {
-			log.Info("Rpc startup failed!", "err", err)
+			log.Error("Rpc startup failed!", "err", err)
 			os.Exit(1)
 			return
 		}
-
 	}()
+
+	getWay, err := rs.NewGetWay(endPoint)
+	if err != nil {
+		return err
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/", getWay)
 	if rs.config.RpcTLS {
-		log.Info("Rpc startup successful", "port", rs.config.RpcPort, "pem", rs.config.RpcCert)
+		tlsConfig, err = getTLSConfig(rs.config.RpcCert, rs.config.RpcCertKey)
+		if err != nil {
+			return err
+		}
+		httpListen = tls.NewListener(httpListen, tlsConfig)
+	}
+
+	rs.httpServer = &http.Server{
+		Addr:      ":" + rs.config.HttpPort,
+		Handler:   grpcHandlerFunc(rs.grpcServer, mux, rs.config),
+		TLSConfig: tlsConfig,
+	}
+	go func() {
+		log.Info("HTTP API startup", "port", rs.config.HttpPort)
+		if err := rs.httpServer.Serve(httpListen); err != nil {
+			log.Error("Rpc startup!", "err", err)
+			os.Exit(1)
+			return
+		}
+	}()
+
+	if rs.config.RpcTLS {
+		log.Info("Rpc startup", "port", rs.config.RpcPort, "pem", rs.config.RpcCert)
 	} else {
-		log.Info("Rpc startup successful", "port", rs.config.RpcPort)
+		log.Info("Rpc startup", "port", rs.config.RpcPort)
 	}
 	return nil
+}
+
+func getTLSConfig(certPemPath, certKeyPath string) (*tls.Config, error) {
+	var certKeyPair *tls.Certificate
+	cert, _ := ioutil.ReadFile(certPemPath)
+	key, _ := ioutil.ReadFile(certKeyPath)
+
+	pair, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return nil, err
+	}
+
+	certKeyPair = &pair
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{*certKeyPair},
+		NextProtos:   []string{http2.NextProtoTLS},
+	}, nil
+}
+
+func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler, rpcConfig *config.RpcConfig) http.Handler {
+	if otherHandler == nil {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			grpcServer.ServeHTTP(w, r)
+		})
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, pass, _ := r.BasicAuth()
+		if pass != rpcConfig.RpcPass {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(fmt.Sprintf("the token authentication information is invalid: password=%s\n", pass)))
+			return
+		}
+		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+			grpcServer.ServeHTTP(w, r)
+		} else {
+			otherHandler.ServeHTTP(w, r)
+		}
+	})
 }
 
 func (rs *Server) Close() {
@@ -102,6 +184,31 @@ func (rs *Server) NewServer() (*grpc.Server, error) {
 	opts = append(opts, grpc.MaxRecvMsgSize(reqmgr.MaxRequestBytes))
 	opts = append(opts, grpc.MaxSendMsgSize(reqmgr.MaxRequestBytes))
 	return grpc.NewServer(opts...), nil
+}
+
+func (rs *Server) NewGetWay(endPoint string) (*runtime.ServeMux, error) {
+	dopts := []grpc.DialOption{}
+	dopts = append(dopts, grpc.WithPerRPCCredentials(&customCredential{
+		Password: rs.config.RpcPass,
+		OpenTLS:  rs.config.RpcTLS,
+	}))
+	ctx := context.Background()
+	if rs.config.RpcTLS {
+		creds, err := credentials.NewClientTLSFromFile(rs.config.RpcCert, "")
+		if err != nil {
+			return nil, err
+		}
+		dopts = append(dopts, grpc.WithTransportCredentials(creds))
+	} else {
+		dopts = append(dopts, grpc.WithInsecure())
+	}
+
+	gwmux := runtime.NewServeMux()
+	if err := RegisterGreeterHandlerFromEndpoint(ctx, gwmux, endPoint, dopts); err != nil {
+		return nil, err
+	}
+	gwmux.GetForwardResponseOptions()
+	return gwmux, nil
 }
 
 func (rs *Server) SendTransaction(_ context.Context, req *Bytes) (*Response, error) {
@@ -279,7 +386,7 @@ func (rs *Server) auth(ctx context.Context) error {
 	}
 
 	if password != rs.config.RpcPass {
-		return fmt.Errorf("the Token authentication information is invalid: password=%s", password)
+		return fmt.Errorf("the token authentication information is invalid:password=%s", password)
 	}
 	return nil
 }

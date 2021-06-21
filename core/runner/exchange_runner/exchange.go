@@ -436,8 +436,9 @@ func GetAmountOut(amountIn, reserveIn, reserveOut uint64) (uint64, error) {
 	if reserveIn <= 0 || reserveOut <= 0 {
 		return 0, errors.New("insufficient liquidity")
 	}
-	//amountInWithFee = amountIn * 997
-	amountInWithFee := big.NewInt(0).Mul(big.NewInt(int64(amountIn)), big.NewInt(997))
+	// amountInWithFee = amountIn * 995
+	// 0.5% fees
+	amountInWithFee := big.NewInt(0).Mul(big.NewInt(int64(amountIn)), big.NewInt(995))
 	// numerator = amountInWithFee * reserveOut
 	numerator := big.NewInt(0).Mul(amountInWithFee, big.NewInt(int64(reserveOut)))
 	// denominator = reserveIn * 1000 + amountInWithFee
@@ -463,8 +464,8 @@ func GetAmountIn(amountOut, reserveIn, reserveOut uint64) (uint64, error) {
 		reserveOut = reserveOut / 10000000*/
 	// numerator = amountOut * reserveIn * 1000
 	numerator := big.NewInt(0).Mul(big.NewInt(0).Mul(big.NewInt(int64(amountOut)), big.NewInt(int64(reserveIn))), big.NewInt(1000))
-	// denominator = (reserveOut - amountOut) (* 997)
-	denominator := big.NewInt(0).Mul(big.NewInt(0).Sub(big.NewInt(int64(reserveOut)), big.NewInt(int64(amountOut))), big.NewInt(997))
+	// denominator = (reserveOut - amountOut) (* 995)
+	denominator := big.NewInt(0).Mul(big.NewInt(0).Sub(big.NewInt(int64(reserveOut)), big.NewInt(int64(amountOut))), big.NewInt(995))
 	// amountIn = (numerator\denominator) + 1
 	x := big.NewInt(0).Div(numerator, denominator)
 

@@ -261,7 +261,7 @@ func (a *Account) changeCoinTransferFrom(tx ITransaction, blockHeight uint64) er
 }
 
 // Change of contract information
-func (a *Account) ContractChangeTo(re *Receiver, contract hasharry.Address, blockHeight uint64) error {
+func (a *Account) ContractChangeTo(re *Receiver, contract hasharry.Address, blockHeight uint64) {
 	if !a.IsExist() {
 		a.Address = re.Address
 	}
@@ -280,7 +280,6 @@ func (a *Account) ContractChangeTo(re *Receiver, contract hasharry.Address, bloc
 	}
 	a.Coins.Set(coinAccount)
 	a.InJournal.Add(contract, re.Amount, blockHeight)
-	return nil
 }
 
 // Change the status of the recipient of the transaction

@@ -310,7 +310,7 @@ func (blc *BlockChain) updateState(block *types.Block) error {
 			if err := blc.accountState.UpdateContractFrom(tx, block.Height); err != nil {
 				return err
 			}
-			if err := blc.accountState.UpdateContractTo(tx, block.Height); err != nil {
+			if err := blc.accountState.TxContractMint(tx, block.Height); err != nil {
 				return err
 			}
 			blc.contractState.UpdateContract(tx, block.Height)

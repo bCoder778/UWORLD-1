@@ -93,7 +93,7 @@ func (as *AccountState) UpdateContractFrom(tx types.ITransaction, blockHeight ui
 	return nil
 }
 
-// Update sender account status based on transaction information
+// UpdateTransferFrom Update sender account status based on transaction information
 func (as *AccountState) UpdateTransferFrom(tx types.ITransaction, blockHeight uint64) error {
 	if tx.IsCoinBase() {
 		return nil
@@ -186,25 +186,33 @@ func (as *AccountState) UpdateTransferTo(tx types.ITransaction, blockHeight uint
 	return nil
 }
 
-func (as *AccountState) UpdateContractTo(tx types.ITransaction, blockHeight uint64) error {
+func (as *AccountState) TxContractMint(tx types.ITransaction, height uint64) error {
 	as.accountMutex.Lock()
 	defer as.accountMutex.Unlock()
 
+	return as.mint(tx.GetTxBody().ToAddress().ReceiverList()[0], tx.GetTxBody().GetContract(), height)
+}
+
+func (as *AccountState) Mint(reviver hasharry.Address, contract hasharry.Address, amount, height uint64) error {
+	as.accountMutex.Lock()
+	defer as.accountMutex.Unlock()
+
+	return as.mint(&types.Receiver{
+		Address: reviver,
+		Amount:  amount,
+	}, contract, height)
+}
+
+func (as *AccountState) mint(receiver *types.Receiver, contract hasharry.Address, height uint64) error {
 	var toAccount types.IAccount
 
-	receivers := tx.GetTxBody().ToAddress().ReceiverList()
-	re := receivers[0]
-	toAccount = as.stateDb.GetAccountState(re.Address)
+	toAccount = as.stateDb.GetAccountState(receiver.Address)
 	err := toAccount.Update(as.confirmedHeight)
 	if err != nil {
 		return err
 	}
 
-	err = toAccount.ContractChangeTo(re, tx.GetTxBody().GetContract(), blockHeight)
-	if err != nil {
-		return err
-	}
-
+	toAccount.ContractChangeTo(receiver, contract, height)
 	as.setAccountState(toAccount)
 	return nil
 }

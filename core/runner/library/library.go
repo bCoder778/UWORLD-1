@@ -2,11 +2,14 @@ package library
 
 import (
 	"errors"
+	"fmt"
 	"github.com/uworldao/UWORLD/common/hasharry"
 	"github.com/uworldao/UWORLD/core/interface"
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
 	"github.com/uworldao/UWORLD/core/types/contractv2/exchange"
+	"github.com/uworldao/UWORLD/param"
+	"github.com/uworldao/UWORLD/ut"
 	"strings"
 )
 
@@ -17,6 +20,24 @@ type RunnerLibrary struct {
 
 func NewRunnerLibrary(aState _interface.IAccountState, cState _interface.IContractState) *RunnerLibrary {
 	return &RunnerLibrary{aState: aState, cState: cState}
+}
+
+func (r *RunnerLibrary) CreateToken(height uint64, hash hasharry.Hash, time uint64, from hasharry.Address, token0, token1 hasharry.Address) (hasharry.Address, error) {
+	token0Record := r.cState.GetContract(token0.String())
+	token1Record := r.cState.GetContract(token1.String())
+	abbr := fmt.Sprintf("LP-%s-%s", token0Record.CoinAbbr, token1Record.CoinAbbr)
+	lp, err := ut.GenerateContractAddress(param.Net, from.String(), abbr)
+	if err != nil {
+		return hasharry.Address{}, err
+	}
+	lpAddress := hasharry.StringToAddress(lp)
+	r.cState.CreateTokenContract(lpAddress, abbr, "", abbr, hash, height, time, 0, from, true)
+	return lpAddress, nil
+}
+
+func (r *RunnerLibrary) Mint(contract hasharry.Address, hash hasharry.Hash, receiver hasharry.Address, amount, height, time uint64) {
+	_ = r.cState.IncreaseTokenContract(contract, hash, height, time, amount, receiver)
+	_ = r.aState.Mint(receiver, contract, amount, height)
 }
 
 func (r *RunnerLibrary) GetContract(contractAddr string) *types.Contract {

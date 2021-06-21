@@ -24,14 +24,14 @@ func GenerateAddress(version string, key *secp256k1.PublicKey) (string, error) {
 // all uppercase or all lowercase, no more than 10
 // characters and no less than 2.
 func CheckAbbr(abbr string) error {
-	if len(abbr) < 2 || len(abbr) > 10 {
+	if len(abbr) < 2 || len(abbr) > 20 {
 		return errors.New("the coin abbr length must be in the range of 2 and 10")
 	}
 	for _, c := range abbr {
-		if !unicode.IsLetter(c) {
+		if !unicode.IsLetter(c) && c != '-' {
 			return errors.New("coin abbr must be letter")
 		}
-		if !unicode.IsUpper(c) {
+		if !unicode.IsUpper(c) && c != '-' {
 			return errors.New("coin abbr must be upper")
 		}
 	}

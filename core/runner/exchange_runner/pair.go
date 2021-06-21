@@ -220,9 +220,19 @@ func (p *PairRunner) Create() {
 		ERR = err
 		return
 	}
-	if err = p.mint(reserveA, reserveB, amountA, amountB); err != nil {
+
+	lpAddress, err := p.library.CreateToken(p.height, p.tx.Hash(), p.tx.GetTime(), p.address, p.pair.Token0, p.pair.Token1)
+	if err != nil {
 		ERR = err
 		return
+	}
+	mintList, err := p.calMint(lpAddress, reserveA, reserveB, amountA, amountB)
+	if err != nil {
+		ERR = err
+		return
+	}
+	for _, mint := range mintList {
+		p.library.Mint(lpAddress, p.tx.Hash(), mint.Address, mint.Amount, p.height, p.tx.GetTime())
 	}
 	p.library.Transfer(transInfo1)
 	p.library.Transfer(transInfo2)
@@ -241,13 +251,19 @@ func (p *PairRunner) createPair() {
 	p.exchange.AddPair(token0, token1, p.address)
 }
 
-func (p *PairRunner) mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
+type mint struct {
+	Address hasharry.Address
+	Amount  uint64
+}
+
+func (p *PairRunner) calMint(lpAddress hasharry.Address, _reserve0, _reserve1, amount0, amount1 uint64) ([]mint, error) {
+	var mintList []mint
 	// must be defined here since totalSupply can update in mintFee
 	_totalSupply := p.pair.TotalSupply
 	// 返回铸造币的手续费开关
 	feeOn, err := p.mintFee(_reserve0, _reserve1)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var liquidityValue uint64
 
@@ -255,23 +271,30 @@ func (p *PairRunner) mint(_reserve0, _reserve1, amount0, amount1 uint64) error {
 		// sqrt(amount0 * amount1) - 1e3
 		liquidityBig := big.NewInt(0).Sub(big.NewInt(0).Sqrt(big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(amount1)))), big.NewInt(int64(exchange2.MINIMUM_LIQUIDITY)))
 		liquidityValue = liquidityBig.Uint64()
-		p.pair.Mint(hasharry.Address{}.String(), exchange2.MINIMUM_LIQUIDITY) // permanently lock the first MINIMUM_LIQUIDITY tokens
+		// permanently lock the first MINIMUM_LIQUIDITY tokens
+		mintList = append(mintList, mint{
+			Address: hasharry.Address{},
+			Amount:  exchange2.MINIMUM_LIQUIDITY,
+		})
 	} else {
 		// valiquidityValue1 = amount0 / _reserve0 * _totalSupply
 		// valiquidityValue2 = amount1 / _reserve1 * _totalSupply
 		value1 := big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(_totalSupply)))
 		value2 := big.NewInt(0).Mul(big.NewInt(int64(amount1)), big.NewInt(int64(_totalSupply)))
 		liquidityValue = math.Min(value1.Uint64()/_reserve0, value2.Uint64()/_reserve1)
+		if liquidityValue <= 0 {
+			return nil, errors.New("insufficient liquidity minted")
+		}
 	}
-	if liquidityValue <= 0 {
-		return errors.New("insufficient liquidity minted")
-	}
-	p.pair.Mint(p.funBody.To.String(), liquidityValue)
+	mintList = append(mintList, mint{
+		Address: p.funBody.To,
+		Amount:  liquidityValue,
+	})
 	p.pair.Update(_reserve0+amount0, _reserve1+amount1, _reserve0, _reserve1, p.blockTime)
 	if feeOn {
 		p.pair.UpdateKLast()
 	}
-	return nil
+	return mintList, nil
 }
 
 // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)

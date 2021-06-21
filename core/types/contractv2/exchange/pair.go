@@ -19,7 +19,6 @@ type Pair struct {
 	Price1CumulativeLast uint64
 	KLast                *big.Int
 	TotalSupply          uint64
-	*liquidityList
 }
 
 func NewPair(exchange, token0, token1 hasharry.Address) *Pair {
@@ -34,7 +33,6 @@ func NewPair(exchange, token0, token1 hasharry.Address) *Pair {
 		Price1CumulativeLast: 0,
 		KLast:                big.NewInt(0),
 		TotalSupply:          0,
-		liquidityList:        &liquidityList{},
 	}
 }
 
@@ -53,7 +51,6 @@ func (p *Pair) GetReserves() (uint64, uint64, uint32) {
 
 func (p *Pair) Mint(address string, number uint64) {
 	p.TotalSupply = p.TotalSupply + number
-	p.liquidityList.mint(address, number)
 }
 
 func (p *Pair) Update(balance0, balance1, _reserve0, _reserve1, blockTime uint64) {
@@ -79,44 +76,4 @@ func DecodeToPair(bytes []byte) (*Pair, error) {
 	var pair *Pair
 	err := rlp.DecodeBytes(bytes, &pair)
 	return pair, err
-}
-
-type liquidity struct {
-	Address string
-	Number  uint64
-}
-
-type liquidityList []*liquidity
-
-func (l *liquidityList) Get(address string) uint64 {
-	for _, liquidity := range *l {
-		if liquidity.Address == address {
-			return liquidity.Number
-		}
-	}
-	return 0
-}
-
-func (l *liquidityList) mint(address string, number uint64) {
-	for i, liquidity := range *l {
-		if liquidity.Address == address {
-			(*l)[i].Number += number
-			return
-		}
-	}
-	*l = append(*l, &liquidity{
-		Address: address,
-		Number:  number,
-	})
-}
-
-func (l *liquidityList) burn(address string, number uint64) {
-	for i, liquidity := range *l {
-		if liquidity.Address == address {
-			if liquidity.Number >= number {
-				(*l)[i].Number -= number
-			}
-			return
-		}
-	}
 }

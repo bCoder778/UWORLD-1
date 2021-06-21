@@ -22,7 +22,9 @@ type IAccountState interface {
 
 	UpdateTransferTo(tx types.ITransaction, blockHeight uint64) error
 
-	UpdateContractTo(tx types.ITransaction, blockHeight uint64) error
+	TxContractMint(tx types.ITransaction, blockHeight uint64) error
+
+	Mint(reviver hasharry.Address, contract hasharry.Address, amount, height uint64) error
 
 	UpdateFees(fees, blockHeight uint64) error
 

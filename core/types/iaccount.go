@@ -17,7 +17,7 @@ type IAccount interface {
 	ContractChangeFrom(ITransaction, uint64) error
 	TransferChangeTo(*Receiver, uint64, hasharry.Address, uint64) error
 	TransferV2ChangeTo(*Receiver, hasharry.Address, uint64) error
-	ContractChangeTo(*Receiver, hasharry.Address, uint64) error
+	ContractChangeTo(*Receiver, hasharry.Address, uint64)
 	FeesChange(uint64, uint64)
 	ConsumptionChange(uint64, uint64)
 	TransferOut(token hasharry.Address, amount, height uint64) error

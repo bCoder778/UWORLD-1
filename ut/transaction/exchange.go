@@ -92,7 +92,7 @@ func NewSetFeeTo(from, exchange, feeTo string, nonce uint64, note string) (*type
 	return tx, nil
 }
 
-func NewPairCreate(net, from, to, exchange, tokenA, tokenB string, amountADesired, amountBDesired, amountAMin, amountBMin, nonce uint64, note string) (*types.Transaction, error) {
+func NewPairAddLiquidity(net, from, to, exchange, tokenA, tokenB string, amountADesired, amountBDesired, amountAMin, amountBMin, nonce uint64, note string) (*types.Transaction, error) {
 	contract, err := exchange_runner.PairAddress(net, hasharry.StringToAddress(tokenA), hasharry.StringToAddress(tokenB), hasharry.StringToAddress(exchange))
 	if err != nil {
 		return nil, err
@@ -111,8 +111,8 @@ func NewPairCreate(net, from, to, exchange, tokenA, tokenB string, amountADesire
 		TxBody: &types.TxContractV2Body{
 			Contract:     hasharry.StringToAddress(contract),
 			Type:         contractv2.Pair_,
-			FunctionType: contractv2.Pair_Create,
-			Function: &exchange_func.ExchangePairCreate{
+			FunctionType: contractv2.Pair_AddLiquidity,
+			Function: &exchange_func.ExchangeAddLiquidity{
 				Exchange:       hasharry.StringToAddress(exchange),
 				TokenA:         hasharry.StringToAddress(tokenA),
 				TokenB:         hasharry.StringToAddress(tokenB),
@@ -121,6 +121,42 @@ func NewPairCreate(net, from, to, exchange, tokenA, tokenB string, amountADesire
 				AmountBDesired: amountBDesired,
 				AmountAMin:     amountAMin,
 				AmountBMin:     amountBMin,
+			},
+		},
+	}
+	tx.SetHash()
+	return tx, nil
+}
+
+func NewPairRemoveLiquidity(net, from, to, exchange, tokenA, tokenB string, amountAMin, amountBMin, liquidity, deadline, nonce uint64, note string) (*types.Transaction, error) {
+	contract, err := exchange_runner.PairAddress(net, hasharry.StringToAddress(tokenA), hasharry.StringToAddress(tokenB), hasharry.StringToAddress(exchange))
+	if err != nil {
+		return nil, err
+	}
+	tx := &types.Transaction{
+		TxHead: &types.TransactionHead{
+			TxType:     types.ContractV2_,
+			TxHash:     hasharry.Hash{},
+			From:       hasharry.StringToAddress(from),
+			Nonce:      nonce,
+			Time:       uint64(time.Now().Unix()),
+			Note:       note,
+			SignScript: &types.SignScript{},
+			Fees:       param.Fees,
+		},
+		TxBody: &types.TxContractV2Body{
+			Contract:     hasharry.StringToAddress(contract),
+			Type:         contractv2.Pair_,
+			FunctionType: contractv2.Pair_RemoveLiquidity,
+			Function: &exchange_func.ExchangeRemoveLiquidity{
+				Exchange:   hasharry.StringToAddress(exchange),
+				TokenA:     hasharry.StringToAddress(tokenA),
+				TokenB:     hasharry.StringToAddress(tokenB),
+				To:         hasharry.StringToAddress(to),
+				Liquidity:  liquidity,
+				AmountAMin: amountAMin,
+				AmountBMin: amountBMin,
+				Deadline:   deadline,
 			},
 		},
 	}

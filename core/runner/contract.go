@@ -34,7 +34,7 @@ func (c *ContractRunner) Verify(tx types.ITransaction, lastHeight uint64) error 
 	body, _ := tx.GetTxBody().(*types.TxContractV2Body)
 	switch body.Type {
 	case contractv2.Exchange_:
-		ex := exchange_runner.NewExchangeRunner(c.library, tx)
+		ex := exchange_runner.NewExchangeRunner(c.library, tx, lastHeight)
 		switch body.FunctionType {
 		case contractv2.Exchange_Init:
 			return ex.PreInitVerify()
@@ -50,9 +50,12 @@ func (c *ContractRunner) Verify(tx types.ITransaction, lastHeight uint64) error 
 
 	case contractv2.Pair_:
 		switch body.FunctionType {
-		case contractv2.Pair_Create:
+		case contractv2.Pair_AddLiquidity:
 			pair := exchange_runner.NewPairRunner(c.library, tx, 0, 0)
-			return pair.PreCreateVerify()
+			return pair.PreAddLiquidityVerify()
+		case contractv2.Pair_RemoveLiquidity:
+			pair := exchange_runner.NewPairRunner(c.library, tx, 0, 0)
+			return pair.PreRemoveLiquidityVerify(lastHeight)
 		}
 	}
 	return nil
@@ -65,7 +68,7 @@ func (c *ContractRunner) RunContract(tx types.ITransaction, blockHeight uint64, 
 	body, _ := tx.GetTxBody().(*types.TxContractV2Body)
 	switch body.Type {
 	case contractv2.Exchange_:
-		ex := exchange_runner.NewExchangeRunner(c.library, tx)
+		ex := exchange_runner.NewExchangeRunner(c.library, tx, blockHeight)
 		switch body.FunctionType {
 		case contractv2.Exchange_Init:
 			ex.Init()
@@ -74,15 +77,18 @@ func (c *ContractRunner) RunContract(tx types.ITransaction, blockHeight uint64, 
 		case contractv2.Exchange_SetFeeTo:
 			ex.SetFeeTo()
 		case contractv2.Exchange_ExactIn:
-			ex.SwapExactIn(blockHeight, blockTime)
+			ex.SwapExactIn(blockTime)
 		case contractv2.Exchange_ExactOut:
-			ex.SwapExactOut(blockHeight, blockTime)
+			ex.SwapExactOut(blockTime)
 		}
 	case contractv2.Pair_:
 		switch body.FunctionType {
-		case contractv2.Pair_Create:
+		case contractv2.Pair_AddLiquidity:
 			pairRunner := exchange_runner.NewPairRunner(c.library, tx, blockHeight, blockTime)
-			pairRunner.Create()
+			pairRunner.AddLiquidity()
+		case contractv2.Pair_RemoveLiquidity:
+			pairRunner := exchange_runner.NewPairRunner(c.library, tx, blockHeight, blockTime)
+			pairRunner.RemoveLiquidity()
 		}
 	}
 	return nil

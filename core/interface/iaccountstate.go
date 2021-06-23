@@ -26,6 +26,10 @@ type IAccountState interface {
 
 	Mint(reviver hasharry.Address, contract hasharry.Address, amount, height uint64) error
 
+	Burn(from hasharry.Address, contract hasharry.Address, amount, height uint64) error
+
+	PreBurn(from hasharry.Address, contract hasharry.Address, amount, height uint64) error
+
 	UpdateFees(fees, blockHeight uint64) error
 
 	UpdateConsumption(consumption, blockHeight uint64) error

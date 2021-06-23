@@ -217,6 +217,46 @@ func (as *AccountState) mint(receiver *types.Receiver, contract hasharry.Address
 	return nil
 }
 
+func (as *AccountState) PreBurn(from hasharry.Address, contract hasharry.Address, amount, height uint64) error {
+	as.accountMutex.Lock()
+	defer as.accountMutex.Unlock()
+
+	return as.preBurn(from, contract, amount, height)
+}
+
+func (as *AccountState) preBurn(from hasharry.Address, contract hasharry.Address, amount, height uint64) error {
+	var toAccount types.IAccount
+
+	toAccount = as.stateDb.GetAccountState(from)
+	err := toAccount.Update(as.confirmedHeight)
+	if err != nil {
+		return err
+	}
+
+	return toAccount.TransferOut(contract, amount, height)
+}
+
+func (as *AccountState) Burn(from hasharry.Address, contract hasharry.Address, amount, height uint64) error {
+	as.accountMutex.Lock()
+	defer as.accountMutex.Unlock()
+
+	return as.burn(from, contract, amount, height)
+}
+
+func (as *AccountState) burn(from hasharry.Address, contract hasharry.Address, amount, height uint64) error {
+	var toAccount types.IAccount
+
+	toAccount = as.stateDb.GetAccountState(from)
+	err := toAccount.Update(as.confirmedHeight)
+	if err != nil {
+		return err
+	}
+
+	toAccount.TransferOut(contract, amount, height)
+	as.setAccountState(toAccount)
+	return nil
+}
+
 func (as *AccountState) UpdateFees(fees, blockHeight uint64) error {
 	as.accountMutex.Lock()
 	defer as.accountMutex.Unlock()

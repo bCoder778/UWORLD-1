@@ -79,7 +79,9 @@ func (c *TxContractV2Body) checkType() error {
 		return errors.New("invalid contract function type")
 	case contractv2.Pair_:
 		switch c.FunctionType {
-		case contractv2.Pair_Create:
+		case contractv2.Pair_AddLiquidity:
+			return nil
+		case contractv2.Pair_RemoveLiquidity:
 			return nil
 		}
 		return errors.New("invalid contract function type")
@@ -96,8 +98,9 @@ const (
 )
 
 type ContractV2State struct {
-	State   ContractState
-	Message string
+	State ContractState
+	Event []*Event
+	Error string
 }
 
 func (c *ContractV2State) Bytes() []byte {
@@ -109,4 +112,21 @@ func DecodeContractV2State(bytes []byte) (*ContractV2State, error) {
 	var c *ContractV2State
 	err := rlp.DecodeBytes(bytes, &c)
 	return c, err
+}
+
+type EventType uint32
+
+const (
+	Event_Transfer EventType = 0
+	Event_Mint     EventType = 1
+	Event_Burn     EventType = 2
+)
+
+type Event struct {
+	EventType EventType
+	From      hasharry.Address
+	To        hasharry.Address
+	Token     hasharry.Address
+	Amount    uint64
+	Height    uint64
 }

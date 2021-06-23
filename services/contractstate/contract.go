@@ -43,35 +43,7 @@ func (cs *ContractState) ContractTrieCommit() (hasharry.Hash, error) {
 	return cs.contractDb.Commit()
 }
 
-func (c *ContractState) CreateTokenContract(contractAddr hasharry.Address, coin, description,
-	abbr string, hash hasharry.Hash, height uint64, time uint64, amount uint64,
-	receiver hasharry.Address, increase bool) {
-	contractRecord := &types.ContractRecord{
-		Height:   height,
-		TxHash:   hash,
-		Time:     time,
-		Amount:   amount,
-		Receiver: receiver.String(),
-	}
-	contract := c.contractDb.GetContract(contractAddr.String())
-	if contract != nil {
-		contract.AddContract(contractRecord)
-	} else {
-		contract = &types.Contract{
-			Contract:       contractAddr.String(),
-			CoinName:       coin,
-			CoinAbbr:       abbr,
-			Description:    description,
-			IncreaseSwitch: increase,
-			Records: &types.RecordList{
-				contractRecord,
-			},
-		}
-	}
-	c.contractDb.SetContract(contract)
-}
-
-func (c *ContractState) IncreaseTokenContract(contractAddr hasharry.Address, hash hasharry.Hash, height uint64,
+func (c *ContractState) MintTokenContractV2(contractAddr hasharry.Address, hash hasharry.Hash, height uint64,
 	time uint64, amount uint64,
 	receiver hasharry.Address) error {
 	contractRecord := &types.ContractRecord{

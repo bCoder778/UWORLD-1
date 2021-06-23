@@ -166,6 +166,17 @@ func CheckContractAddress(net string, address string, abbr string, contractAddre
 	return newAddress == contractAddress
 }
 
+func CheckContractV2Address(net string, bytes []byte, contractAddress string) bool {
+	if !IsValidContractAddress(net, contractAddress) {
+		return false
+	}
+	newAddress, err := GenerateContractV2Address(net, bytes)
+	if err != nil {
+		return false
+	}
+	return newAddress == contractAddress
+}
+
 func IsValidContractAddress(net string, address string) bool {
 	if address == param.Token.String() {
 		return true

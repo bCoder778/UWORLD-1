@@ -28,8 +28,8 @@ type Exchange struct {
 
 func NewExchange(admin, feeTo hasharry.Address) *Exchange {
 	return &Exchange{
-		FeeTo:    admin,
-		Admin:    feeTo,
+		FeeTo:    feeTo,
+		Admin:    admin,
 		Pair:     make(map[hasharry.Address]map[hasharry.Address]hasharry.Address),
 		AllPairs: make([]PairAddress, 0),
 	}

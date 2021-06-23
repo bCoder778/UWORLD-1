@@ -19,7 +19,8 @@ import (
 type PairRunner struct {
 	library      *library.RunnerLibrary
 	contractBody *types.TxContractV2Body
-	funBody      *exchange_func.ExchangePairCreate
+	addBody      *exchange_func.ExchangeAddLiquidity
+	removeBody   *exchange_func.ExchangeRemoveLiquidity
 	exHeader     *contractv2.ContractV2
 	exchange     *exchange2.Exchange
 	pairHeader   *contractv2.ContractV2
@@ -29,6 +30,7 @@ type PairRunner struct {
 	txBody       types.ITransactionBody
 	sender       hasharry.Address
 	state        *types.ContractV2State
+	events       []*types.Event
 	height       uint64
 	blockTime    uint64
 }
@@ -36,12 +38,23 @@ type PairRunner struct {
 func NewPairRunner(lib *library.RunnerLibrary, tx types.ITransaction, height, blockTime uint64) *PairRunner {
 	var exchange *exchange2.Exchange
 	var pair *exchange2.Pair
+	var exchangeAddr string
+	var addBody *exchange_func.ExchangeAddLiquidity
+	var removeBody *exchange_func.ExchangeRemoveLiquidity
 	txBody := tx.GetTxBody()
 	contractBody, _ := txBody.(*types.TxContractV2Body)
 	address := contractBody.Contract
 
-	funBody, _ := contractBody.Function.(*exchange_func.ExchangePairCreate)
-	exHeader := lib.GetContractV2(funBody.Exchange.String())
+	switch contractBody.FunctionType {
+	case contractv2.Pair_AddLiquidity:
+		addBody, _ = contractBody.Function.(*exchange_func.ExchangeAddLiquidity)
+		exchangeAddr = addBody.Exchange.String()
+	case contractv2.Pair_RemoveLiquidity:
+		removeBody, _ = contractBody.Function.(*exchange_func.ExchangeRemoveLiquidity)
+		exchangeAddr = removeBody.Exchange.String()
+	}
+
+	exHeader := lib.GetContractV2(exchangeAddr)
 	if exHeader != nil {
 		exchange, _ = exHeader.Body.(*exchange2.Exchange)
 	}
@@ -54,7 +67,8 @@ func NewPairRunner(lib *library.RunnerLibrary, tx types.ITransaction, height, bl
 	return &PairRunner{
 		library:      lib,
 		contractBody: contractBody,
-		funBody:      funBody,
+		addBody:      addBody,
+		removeBody:   removeBody,
 		exHeader:     exHeader,
 		exchange:     exchange,
 		pairHeader:   pairHeader,
@@ -65,65 +79,130 @@ func NewPairRunner(lib *library.RunnerLibrary, tx types.ITransaction, height, bl
 		height:       height,
 		sender:       tx.From(),
 		blockTime:    blockTime,
+		events:       make([]*types.Event, 0),
 	}
 }
 
-func (p *PairRunner) PreCreateVerify() error {
+func (p *PairRunner) PreAddLiquidityVerify() error {
 	if p.exHeader == nil {
-		return fmt.Errorf("exchange %s is not exist", p.funBody.Exchange.String())
+		return fmt.Errorf("exchange %s is not exist", p.addBody.Exchange.String())
 	}
-	if !p.sender.IsEqual(p.exchange.Admin) {
-		return errors.New("forbidden")
-	}
-	if p.pair != nil {
-		return errors.New("pair exist")
-	}
-	if !p.funBody.TokenA.IsEqual(param.Token) {
-		if contract := p.library.GetContract(p.funBody.TokenA.String()); contract == nil {
-			return fmt.Errorf("tokenA %s is not exist", p.funBody.TokenA.String())
+	/*	if !p.sender.IsEqual(p.exchange.Admin) {
+			return errors.New("forbidden")
+		}
+	*/
+	if !p.addBody.TokenA.IsEqual(param.Token) {
+		if contract := p.library.GetContract(p.addBody.TokenA.String()); contract == nil {
+			return fmt.Errorf("tokenA %s is not exist", p.addBody.TokenA.String())
 		}
 	}
-	if !p.funBody.TokenB.IsEqual(param.Token) {
-		if contract := p.library.GetContract(p.funBody.TokenB.String()); contract == nil {
-			return fmt.Errorf("tokenB %s is not exist", p.funBody.TokenB.String())
+	if !p.addBody.TokenB.IsEqual(param.Token) {
+		if contract := p.library.GetContract(p.addBody.TokenB.String()); contract == nil {
+			return fmt.Errorf("tokenB %s is not exist", p.addBody.TokenB.String())
 		}
 	}
 
-	address, err := PairAddress(param.Net, p.funBody.TokenA, p.funBody.TokenB, p.exHeader.Address)
+	address, err := PairAddress(param.Net, p.addBody.TokenA, p.addBody.TokenB, p.exHeader.Address)
 	if err != nil {
 		return fmt.Errorf("pair address error")
 	}
 	if address != p.address.String() {
 		return fmt.Errorf("wrong pair contract address")
+	}
+	if p.pair != nil {
+		return p.preAddLiquidityVerify(address)
 	}
 	return nil
 }
 
-func (p *PairRunner) PreAddVerify() error {
-	if p.exHeader == nil {
-		return fmt.Errorf("exchange %s is not exist", p.funBody.Exchange.String())
-	}
-	if !p.sender.IsEqual(p.exchange.Admin) {
-		return errors.New("forbidden")
-	}
+func (p *PairRunner) preAddLiquidityVerify(pairAddr string) error {
 	if p.pair == nil {
 		return errors.New("pair not exist")
 	}
-	address, err := PairAddress(param.Net, p.funBody.TokenA, p.funBody.TokenB, p.exHeader.Address)
+	pairContract := p.library.GetContractV2(pairAddr)
+	if pairContract == nil {
+		return fmt.Errorf("the pair %s is not exist", pairAddr)
+	}
+	pair := pairContract.Body.(*exchange2.Pair)
+	reserveA, reserveB := p.library.GetReservesByPair(pair, p.addBody.TokenA, p.addBody.TokenB)
+	amountA, amountB, err := p.optimalAmount(reserveA, reserveB, p.addBody.AmountADesired, p.addBody.AmountBDesired, p.addBody.AmountAMin, p.addBody.AmountBMin)
+	if err != nil {
+		return err
+	}
+	balanceA := p.library.GetBalance(p.sender, p.addBody.TokenA)
+	if balanceA < amountA {
+		return fmt.Errorf("insufficient balance %s", p.sender.String())
+	}
+	balanceB := p.library.GetBalance(p.sender, p.addBody.TokenB)
+	if balanceB < amountB {
+		return fmt.Errorf("insufficient balance %s", p.sender.String())
+	}
+	return nil
+}
+
+func (p *PairRunner) PreRemoveLiquidityVerify(lastHeight uint64) error {
+	if p.removeBody.Deadline != 0 && p.removeBody.Deadline < lastHeight {
+		return fmt.Errorf("past the deadline")
+	}
+	if p.exHeader == nil {
+		return fmt.Errorf("exchange %s is not exist", p.removeBody.Exchange.String())
+	}
+	/*	if !p.sender.IsEqual(p.exchange.Admin) {
+			return errors.New("forbidden")
+		}
+	*/
+	if p.removeBody.Liquidity == 0 {
+		return fmt.Errorf("invalid liquidity")
+	}
+	if !p.removeBody.TokenA.IsEqual(param.Token) {
+		if contract := p.library.GetContract(p.removeBody.TokenA.String()); contract == nil {
+			return fmt.Errorf("tokenA %s is not exist", p.removeBody.TokenA.String())
+		}
+	}
+	if !p.removeBody.TokenB.IsEqual(param.Token) {
+		if contract := p.library.GetContract(p.removeBody.TokenB.String()); contract == nil {
+			return fmt.Errorf("tokenB %s is not exist", p.removeBody.TokenB.String())
+		}
+	}
+
+	address, err := PairAddress(param.Net, p.removeBody.TokenA, p.removeBody.TokenB, p.exHeader.Address)
 	if err != nil {
 		return fmt.Errorf("pair address error")
 	}
 	if address != p.address.String() {
 		return fmt.Errorf("wrong pair contract address")
 	}
-	pairContract := p.library.GetContractV2(address)
-	if pairContract == nil {
-		return fmt.Errorf("the pair %s is not exist", address)
+	if p.pair == nil {
+		return fmt.Errorf("pair is not exist")
 	}
-	pair := pairContract.Body.(*exchange2.Pair)
-	reserveA, reserveB := p.library.GetReservesByPair(pair, p.funBody.TokenA, p.funBody.TokenB)
-	_, _, err = p.optimalAmount(reserveA, reserveB, p.funBody.AmountADesired, p.funBody.AmountBDesired, p.funBody.AmountAMin, p.funBody.AmountBMin)
-	return err
+	balance := p.library.GetBalance(p.sender, p.address)
+	if balance < p.removeBody.Liquidity {
+		return fmt.Errorf("%s's liquidity token is insufficient", p.sender.String())
+	}
+	token0, token1 := library.SortToken(p.removeBody.TokenA, p.removeBody.TokenB)
+	_reserve0, _reserve1 := p.library.GetReservesByPair(p.pair, token0, token1)
+
+	_liquidity := p.removeBody.Liquidity
+	if balance < _liquidity {
+		return fmt.Errorf("%s's liquidity token is insufficient", p.sender.String())
+	}
+	_totalSupply := p.pair.TotalSupply
+	if _totalSupply < p.removeBody.Liquidity {
+		return fmt.Errorf("%s's liquidity token is insufficient", p.address.String())
+	}
+
+	amount0 := new(big.Int).Div(new(big.Int).Mul(big.NewInt(int64(_liquidity)), big.NewInt(int64(_reserve0))), big.NewInt(int64(_totalSupply))).Uint64()
+	amount1 := new(big.Int).Div(new(big.Int).Mul(big.NewInt(int64(_liquidity)), big.NewInt(int64(_reserve1))), big.NewInt(int64(_totalSupply))).Uint64()
+	if token0.IsEqual(p.removeBody.TokenA) {
+		if amount0 < p.removeBody.AmountAMin || amount1 < p.removeBody.AmountBMin {
+			return fmt.Errorf("not meet expectations")
+		}
+	} else {
+		if amount0 < p.removeBody.AmountBMin || amount1 < p.removeBody.AmountAMin {
+			return fmt.Errorf("not meet expectations")
+		}
+	}
+	return nil
 }
 
 func (p *PairRunner) optimalAmount(reserveA, reserveB, amountADesired, amountBDesired, amountAMin, amountBMin uint64) (uint64, uint64, error) {
@@ -160,88 +239,77 @@ func (p *PairRunner) quote(amountA, reserveA, reserveB uint64) (uint64, error) {
 	if amountA <= 0 {
 		return 0, errors.New("insufficient_amount")
 	}
-	if reserveA >= 0 || reserveB <= 0 {
+	if reserveA <= 0 || reserveB <= 0 {
 		return 0, errors.New("insufficient_liquidity")
 	}
 	amountB := big.NewInt(0).Div(big.NewInt(0).Mul(big.NewInt(int64(amountA)), big.NewInt(int64(reserveB))), big.NewInt(int64(reserveA)))
 	return amountB.Uint64(), nil
 }
 
-func (p *PairRunner) Create() {
+func (p *PairRunner) AddLiquidity() {
 	var ERR error
+	var err error
+	var feeLiquidity uint64
+	var feeOn bool
 	defer func() {
 		if ERR != nil {
 			p.state.State = types.Contract_Failed
-			p.state.Message = ERR.Error()
+			p.state.Error = ERR.Error()
+		} else {
+			p.state.Event = p.events
 		}
+		p.state.Event = p.events
+		p.library.SetContractV2State(p.tx.Hash().String(), p.state)
 	}()
-
 	if p.exHeader == nil {
-		ERR = fmt.Errorf("exchange %s is not exist", p.funBody.Exchange.String())
-		return
-	}
-	if !p.sender.IsEqual(p.exchange.Admin) {
-		ERR = errors.New("forbidden")
-		return
-	}
-	if p.pair != nil {
-		ERR = errors.New("pair exist")
+		ERR = fmt.Errorf("exchange %s is not exist", p.addBody.Exchange.String())
 		return
 	}
 
-	p.createPair()
+	if p.pair == nil {
+		p.createPair()
+	}
 
-	reserveA, reserveB := p.library.GetReservesByPair(p.pair, p.funBody.TokenA, p.funBody.TokenB)
+	_reserveA, _reserveB := p.library.GetReservesByPair(p.pair, p.addBody.TokenA, p.addBody.TokenB)
+	_reserve0, _reserve1 := p.pair.Reserve0, p.pair.Reserve1
 
-	amountA, amountB, err := p.optimalAmount(reserveA, reserveB, p.funBody.AmountADesired, p.funBody.AmountBDesired, p.funBody.AmountAMin, p.funBody.AmountBMin)
+	amountA, amountB, err := p.optimalAmount(_reserveA, _reserveB, p.addBody.AmountADesired, p.addBody.AmountBDesired, p.addBody.AmountAMin, p.addBody.AmountBMin)
 	if err != nil {
 		ERR = err
 		return
 	}
-	transInfo1 := &library.TransferInfo{
-		From:   p.sender,
-		To:     p.address,
-		Token:  p.funBody.TokenA,
-		Amount: amountA,
-		Height: p.height,
-	}
-	if err = p.library.PreTransfer(transInfo1); err != nil {
+
+	liquidity, feeLiquidity, feeOn, err := p.mintLiquidityValue(_reserveA, _reserveB, amountA, amountB)
+	if err != nil {
 		ERR = err
 		return
 	}
-	transInfo2 := &library.TransferInfo{
-		From:   p.sender,
-		To:     p.address,
-		Token:  p.funBody.TokenB,
-		Amount: amountB,
-		Height: p.height,
-	}
-	if err = p.library.PreTransfer(transInfo2); err != nil {
-		ERR = err
-		return
+	if p.addBody.TokenA.IsEqual(p.pair.Token0) {
+		p.pair.UpdatePair(_reserve0+amountA, _reserve1+amountB, _reserve0, _reserve1, p.height, feeOn)
+	} else {
+		p.pair.UpdatePair(_reserve0+amountB, _reserve1+amountA, _reserve0, _reserve1, p.height, feeOn)
 	}
 
-	lpAddress, err := p.library.CreateToken(p.height, p.tx.Hash(), p.tx.GetTime(), p.address, p.pair.Token0, p.pair.Token1)
-	if err != nil {
+	p.transferEvent(p.sender, p.address, p.addBody.TokenA, amountA)
+	p.transferEvent(p.sender, p.address, p.addBody.TokenB, amountB)
+	p.mintEvent(p.addBody.To, p.address, liquidity)
+	if feeOn {
+		p.mintEvent(p.exchange.FeeTo, p.address, feeLiquidity)
+	}
+
+	if err = p.runEvents(); err != nil {
 		ERR = err
 		return
 	}
-	mintList, err := p.calMint(lpAddress, reserveA, reserveB, amountA, amountB)
-	if err != nil {
-		ERR = err
-		return
-	}
-	for _, mint := range mintList {
-		p.library.Mint(lpAddress, p.tx.Hash(), mint.Address, mint.Amount, p.height, p.tx.GetTime())
-	}
-	p.library.Transfer(transInfo1)
-	p.library.Transfer(transInfo2)
 	p.update()
 }
 
 func (p *PairRunner) createPair() {
-	token0, token1 := library.SortToken(p.funBody.TokenA, p.funBody.TokenB)
-	p.pair = exchange2.NewPair(p.funBody.Exchange, token0, token1)
+	token0, token1 := library.SortToken(p.addBody.TokenA, p.addBody.TokenB)
+	symbol0, _ := p.library.ContractSymbol(token0)
+	symbol1, _ := p.library.ContractSymbol(token1)
+	p.pair = exchange2.NewPair(p.addBody.Exchange, token0, token1, symbol0, symbol1)
+
 	p.pairHeader = &contractv2.ContractV2{
 		Address:    p.address,
 		CreateHash: p.tx.Hash(),
@@ -251,54 +319,119 @@ func (p *PairRunner) createPair() {
 	p.exchange.AddPair(token0, token1, p.address)
 }
 
+type RemoveLiquidity struct {
+	SymbolA string `json:"symbolA"`
+	SymbolB string `json:"symbolB"`
+	AmountA uint64 `json:"amountA"`
+	AmountB uint64 `json:"amountB"`
+}
+
+func (p *PairRunner) RemoveLiquidity() {
+	var ERR error
+	defer func() {
+		if ERR != nil {
+			p.state.State = types.Contract_Failed
+			p.state.Error = ERR.Error()
+		} else {
+			p.state.Event = p.events
+		}
+		p.library.SetContractV2State(p.tx.Hash().String(), p.state)
+	}()
+
+	if p.exHeader == nil {
+		ERR = fmt.Errorf("exchange %s is not exist", p.addBody.Exchange.String())
+		return
+	}
+
+	if p.pair == nil {
+		ERR = errors.New("pair is not exist")
+		return
+	}
+
+	token0, token1 := library.SortToken(p.removeBody.TokenA, p.removeBody.TokenB)
+	_reserve0, _reserve1 := p.library.GetReservesByPair(p.pair, token0, token1)
+	feeOn, feeLiquidity, err := p.mintFee(_reserve0, _reserve1)
+	if err != nil {
+		ERR = err
+		return
+	}
+	balance := p.library.GetBalance(p.sender, p.address)
+	_liquidity := p.removeBody.Liquidity
+	if balance < _liquidity {
+		ERR = fmt.Errorf("%s's liquidity token is insufficient", p.sender.String())
+		return
+	}
+	_totalSupply := p.pair.TotalSupply
+	if _totalSupply < p.removeBody.Liquidity {
+		ERR = fmt.Errorf("%s's liquidity token is insufficient", p.address.String())
+		return
+	}
+
+	amount0 := new(big.Int).Div(new(big.Int).Mul(big.NewInt(int64(_liquidity)), big.NewInt(int64(_reserve0))), big.NewInt(int64(_totalSupply))).Uint64()
+	amount1 := new(big.Int).Div(new(big.Int).Mul(big.NewInt(int64(_liquidity)), big.NewInt(int64(_reserve1))), big.NewInt(int64(_totalSupply))).Uint64()
+	if token0.IsEqual(p.removeBody.TokenA) {
+		if amount0 < p.removeBody.AmountAMin || amount1 < p.removeBody.AmountBMin {
+			ERR = fmt.Errorf("not meet expectations")
+			return
+		}
+	} else {
+		if amount0 < p.removeBody.AmountBMin || amount1 < p.removeBody.AmountAMin {
+			ERR = fmt.Errorf("not meet expectations")
+			return
+		}
+	}
+	p.pair.UpdatePair(_reserve0-amount0, _reserve1-amount1, _reserve0, _reserve1, p.height, feeOn)
+
+	if feeOn {
+		p.mintEvent(p.exchange.FeeTo, p.address, feeLiquidity)
+	}
+	p.burnEvent(p.sender, p.address, p.removeBody.Liquidity)
+	p.transferEvent(p.address, p.removeBody.To, token0, amount0)
+	p.transferEvent(p.address, p.removeBody.To, token1, amount1)
+
+	if err = p.runEvents(); err != nil {
+		ERR = err
+		return
+	}
+	p.update()
+}
+
 type mint struct {
 	Address hasharry.Address
 	Amount  uint64
 }
 
-func (p *PairRunner) calMint(lpAddress hasharry.Address, _reserve0, _reserve1, amount0, amount1 uint64) ([]mint, error) {
-	var mintList []mint
+func (p *PairRunner) mintLiquidityValue(_reserve0, _reserve1, amount0, amount1 uint64) (uint64, uint64, bool, error) {
 	// must be defined here since totalSupply can update in mintFee
 	_totalSupply := p.pair.TotalSupply
 	// 返回铸造币的手续费开关
-	feeOn, err := p.mintFee(_reserve0, _reserve1)
+	feeOn, feeLiquidity, err := p.mintFee(_reserve0, _reserve1)
 	if err != nil {
-		return nil, err
+		return 0, 0, false, err
 	}
 	var liquidityValue uint64
 
 	if _totalSupply == 0 {
-		// sqrt(amount0 * amount1) - 1e3
-		liquidityBig := big.NewInt(0).Sub(big.NewInt(0).Sqrt(big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(amount1)))), big.NewInt(int64(exchange2.MINIMUM_LIQUIDITY)))
+		// sqrt(amount0 * amount1)
+		liquidityBig := big.NewInt(0).Sqrt(big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(amount1))))
 		liquidityValue = liquidityBig.Uint64()
-		// permanently lock the first MINIMUM_LIQUIDITY tokens
-		mintList = append(mintList, mint{
-			Address: hasharry.Address{},
-			Amount:  exchange2.MINIMUM_LIQUIDITY,
-		})
 	} else {
 		// valiquidityValue1 = amount0 / _reserve0 * _totalSupply
 		// valiquidityValue2 = amount1 / _reserve1 * _totalSupply
-		value1 := big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(_totalSupply)))
-		value2 := big.NewInt(0).Mul(big.NewInt(int64(amount1)), big.NewInt(int64(_totalSupply)))
-		liquidityValue = math.Min(value1.Uint64()/_reserve0, value2.Uint64()/_reserve1)
+		value0 := big.NewInt(0).Mul(big.NewInt(int64(amount0)), big.NewInt(int64(_totalSupply)))
+		value1 := big.NewInt(0).Mul(big.NewInt(int64(amount1)), big.NewInt(int64(_totalSupply)))
+		liquidityValue = math.Min(big.NewInt(0).Div(value0, big.NewInt(int64(_reserve0))).Uint64(), big.NewInt(0).Div(value1, big.NewInt(int64(_reserve1))).Uint64())
 		if liquidityValue <= 0 {
-			return nil, errors.New("insufficient liquidity minted")
+			return 0, 0, false, errors.New("insufficient liquidity minted")
 		}
 	}
-	mintList = append(mintList, mint{
-		Address: p.funBody.To,
-		Amount:  liquidityValue,
-	})
-	p.pair.Update(_reserve0+amount0, _reserve1+amount1, _reserve0, _reserve1, p.blockTime)
-	if feeOn {
-		p.pair.UpdateKLast()
-	}
-	return mintList, nil
+
+	return liquidityValue, feeLiquidity, feeOn, nil
 }
 
 // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
-func (p *PairRunner) mintFee(_reserve0, _reserve1 uint64) (bool, error) {
+func (p *PairRunner) mintFee(_reserve0, _reserve1 uint64) (bool, uint64, error) {
+	var feeLiquidity uint64
 	feeTo := p.exchange.FeeTo
 	// 收费地址被设置，则收费开
 	feeOn := !feeTo.IsEqual(hasharry.Address{})
@@ -317,14 +450,14 @@ func (p *PairRunner) mintFee(_reserve0, _reserve1 uint64) (bool, error) {
 				// liquidity = numerator / denominator
 				liquidityBig := big.NewInt(0).Div(numerator, denominator)
 				if liquidityBig.Cmp(big.NewInt(0)) > 0 {
-					p.pair.Mint(feeTo.String(), liquidityBig.Uint64())
+					feeLiquidity = liquidityBig.Uint64()
 				}
 			}
 		}
 	} else if _kLast.Cmp(big.NewInt(0)) != 0 {
 		p.pair.KLast = big.NewInt(0)
 	}
-	return feeOn, nil
+	return feeOn, feeLiquidity, nil
 }
 
 func (p *PairRunner) update() {
@@ -332,7 +465,53 @@ func (p *PairRunner) update() {
 	p.pairHeader.Body = p.pair
 	p.library.SetContractV2(p.exHeader)
 	p.library.SetContractV2(p.pairHeader)
-	p.library.SetContractV2State(p.tx.Hash().String(), p.state)
+}
+
+func (p *PairRunner) transferEvent(from, to, token hasharry.Address, amount uint64) {
+	p.events = append(p.events, &types.Event{
+		EventType: types.Event_Transfer,
+		From:      from,
+		To:        to,
+		Token:     token,
+		Amount:    amount,
+		Height:    p.height,
+	})
+}
+
+func (p *PairRunner) mintEvent(to, token hasharry.Address, amount uint64) {
+	p.pair.Mint(amount)
+	p.events = append(p.events, &types.Event{
+		EventType: types.Event_Mint,
+		From:      hasharry.StringToAddress("mint"),
+		To:        to,
+		Token:     token,
+		Amount:    amount,
+		Height:    p.height,
+	})
+}
+
+func (p *PairRunner) burnEvent(from, token hasharry.Address, amount uint64) {
+	p.pair.Burn(amount)
+	p.events = append(p.events, &types.Event{
+		EventType: types.Event_Burn,
+		From:      from,
+		To:        hasharry.StringToAddress("burn"),
+		Token:     token,
+		Amount:    amount,
+		Height:    p.height,
+	})
+}
+
+func (p *PairRunner) runEvents() error {
+	for _, event := range p.events {
+		if err := p.library.PreRunEvent(event); err != nil {
+			return err
+		}
+	}
+	for _, event := range p.events {
+		p.library.RunEvent(event)
+	}
+	return nil
 }
 
 func PairAddress(net string, tokenA, tokenB hasharry.Address, exchange hasharry.Address) (string, error) {

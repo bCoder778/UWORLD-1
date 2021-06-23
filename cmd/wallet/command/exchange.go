@@ -21,7 +21,8 @@ func init() {
 		CreateExchangeCmd,
 		SetExchangeAdminCmd,
 		SetExchangeFeeToCmd,
-		CreatePairCmd,
+		AddLiquidityCmd,
+		RemoveLiquidityCmd,
 		SwapExactInCmd,
 		SwapExactOutCmd,
 		GetAllPairsCmd,
@@ -289,20 +290,20 @@ func parseSEFTParams(args []string, nonce uint64) (*types.Transaction, error) {
 	return tx, nil
 }
 
-var CreatePairCmd = &cobra.Command{
-	Use:     "CreatePair {from} {to} {exchange} {tokenA} {amountADesired} {amountAmin} {tokenB} {amountBDesired} {amountBMin} {password} {nonce};Create a pair contract;",
-	Aliases: []string{"createpair", "cp", "CP"},
-	Short:   "CreatePair {from} {to} {exchange} {tokenA} {amountADesired} {amountAmin} {tokenB} {amountBDesired} {amountBMin} {password} {nonce}; Create a pair contract;",
+var AddLiquidityCmd = &cobra.Command{
+	Use:     "AddLiquidity {from} {to} {exchange} {tokenA} {amountADesired} {amountAmin} {tokenB} {amountBDesired} {amountBMin} {password} {nonce}; Create and add liquidity;",
+	Aliases: []string{"addliquidity", "al", "AL"},
+	Short:   "AddLiquidity {from} {to} {exchange} {tokenA} {amountADesired} {amountAmin} {tokenB} {amountBDesired} {amountBMin} {password} {nonce}; Create and add liquidity;",
 	Example: `
-	CreatePair UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWTXEqvUWik48uAHcJXZiyyWMy4GLtpGuttL 100 90 UWD 1 0.9 123456
+	AddLiquidity UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWTXEqvUWik48uAHcJXZiyyWMy4GLtpGuttL 100 90 UWD 1 0.9 123456
 		OR
-	CreatePair UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWTXEqvUWik48uAHcJXZiyyWMy4GLtpGuttL 100 90 UWD 1 0.9 123456 1
+	AddLiquidity UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWTXEqvUWik48uAHcJXZiyyWMy4GLtpGuttL 100 90 UWD 1 0.9 123456 1
 	`,
 	Args: cobra.MinimumNArgs(9),
-	Run:  CreatePair,
+	Run:  AddLiquidity,
 }
 
-func CreatePair(cmd *cobra.Command, args []string) {
+func AddLiquidity(cmd *cobra.Command, args []string) {
 	var passwd []byte
 	var err error
 	if len(args) > 9 {
@@ -335,7 +336,7 @@ func CreatePair(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	tx, err := parseCPParams(args, account.Nonce+1)
+	tx, err := parseALParams(args, account.Nonce+1)
 	if err != nil {
 		outputError(cmd.Use, err)
 		return
@@ -357,7 +358,7 @@ func CreatePair(cmd *cobra.Command, args []string) {
 	}
 }
 
-func parseCPParams(args []string, nonce uint64) (*types.Transaction, error) {
+func parseALParams(args []string, nonce uint64) (*types.Transaction, error) {
 	var err error
 	from := args[0]
 	to := args[1]
@@ -390,7 +391,118 @@ func parseCPParams(args []string, nonce uint64) (*types.Transaction, error) {
 			return nil, errors.New("wrong nonce")
 		}
 	}
-	tx, err := transaction.NewPairCreate(Net, from, to, exchange, tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, nonce, "")
+	tx, err := transaction.NewPairAddLiquidity(Net, from, to, exchange, tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, nonce, "")
+	if err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
+
+var RemoveLiquidityCmd = &cobra.Command{
+	Use:     "RemoveLiquidity {from} {to} {exchange} {tokenA} {amountAmin} {tokenB} {amountBMin} {liquidity} {deadline} {password} {nonce}; Removal of liquidity;",
+	Aliases: []string{"removeliquidity", "rl", "RL"},
+	Short:   "RemoveLiquidity {from} {to} {exchange} {tokenA} {amountAmin} {tokenB} {amountBMin} {liquidity} {deadline} {password} {nonce}; Removal of liquidity;",
+	Example: `
+	RemoveLiquidity UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWTXEqvUWik48uAHcJXZiyyWMy4GLtpGuttL 100  UWD  0.9 10 100 123456
+		OR
+	RemoveLiquidity UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWDGLmQMfEeF6Fh8CGztrSktnHVpCxLiheYw UWTfBGxDMZX19vjnacXVkP51min9EjhYq43W UWTXEqvUWik48uAHcJXZiyyWMy4GLtpGuttL 100  UWD  0.9 10 100 123456 1
+	`,
+	Args: cobra.MinimumNArgs(9),
+	Run:  RemoveLiquidity,
+}
+
+func RemoveLiquidity(cmd *cobra.Command, args []string) {
+	var passwd []byte
+	var err error
+	if len(args) > 9 {
+		passwd = []byte(args[9])
+	} else {
+		fmt.Println("please input password：")
+		passwd, err = readPassWd()
+		if err != nil {
+			outputError(cmd.Use, fmt.Errorf("read password failed! %s", err.Error()))
+			return
+		}
+	}
+	privKey, err := ReadAddrPrivate(getAddJsonPath(args[0]), passwd)
+	if err != nil {
+		outputError(cmd.Use, fmt.Errorf("wrong password"))
+		return
+	}
+	resp, err := GetAccountByRpc(args[0])
+	if err != nil {
+		outputError(cmd.Use, err)
+		return
+	}
+	if resp.Code != 0 {
+		outputRespError(cmd.Use, resp)
+		return
+	}
+	var account *rpctypes.Account
+	if err := json.Unmarshal(resp.Result, &account); err != nil {
+		outputError(cmd.Use, err)
+		return
+	}
+
+	tx, err := parseRLParams(args, account.Nonce+1)
+	if err != nil {
+		outputError(cmd.Use, err)
+		return
+	}
+
+	if !signTx(cmd, tx, privKey.Private) {
+		outputError(cmd.Use, errors.New("signature failure"))
+		return
+	}
+
+	rs, err := sendTx(cmd, tx)
+	if err != nil {
+		outputError(cmd.Use, err)
+	} else if rs.Code != 0 {
+		outputRespError(cmd.Use, rs)
+	} else {
+		fmt.Println()
+		fmt.Println(string(rs.Result))
+	}
+}
+
+func parseRLParams(args []string, nonce uint64) (*types.Transaction, error) {
+	var err error
+	from := args[0]
+	to := args[1]
+	exchange := args[2]
+	tokenA := args[3]
+
+	amountAMinf, err := strconv.ParseFloat(args[4], 64)
+	if err != nil {
+		return nil, errors.New("wrong amountAMin")
+	}
+	amountAMin, _ := types.NewAmount(amountAMinf)
+	tokenB := args[5]
+
+	amountBMinf, err := strconv.ParseFloat(args[6], 64)
+	if err != nil {
+		return nil, errors.New("wrong amountBMin")
+	}
+	amountBMin, _ := types.NewAmount(amountBMinf)
+	liquidityf, err := strconv.ParseFloat(args[7], 64)
+	if err != nil {
+		return nil, errors.New("wrong amountBMin")
+	}
+	fmt.Println(args[7])
+	fmt.Println(liquidityf)
+	liquidity, _ := types.NewAmount(liquidityf)
+	deadline, err := strconv.ParseUint(args[8], 10, 64)
+	if err != nil {
+		return nil, errors.New("wrong amountBMin")
+	}
+	if len(args) > 10 {
+		nonce, err = strconv.ParseUint(args[10], 10, 64)
+		if err != nil {
+			return nil, errors.New("wrong nonce")
+		}
+	}
+	tx, err := transaction.NewPairRemoveLiquidity(Net, from, to, exchange, tokenA, tokenB, amountAMin, amountBMin, liquidity, deadline, nonce, "")
 	if err != nil {
 		return nil, err
 	}
@@ -667,6 +779,9 @@ func GetAllPairByRpc(addr string) ([]*types.RpcPair, error) {
 	rs, err := client.Gc.GetExchangePairs(ctx, &rpc.Address{Address: addr})
 	if err != nil {
 		return nil, err
+	}
+	if rs.Code != rpctypes.RpcSuccess {
+		return nil, errors.New(rs.Err)
 	}
 	pairs := make([]*types.RpcPair, 0)
 	if err := json.Unmarshal(rs.Result, &pairs); err != nil {

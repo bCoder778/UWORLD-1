@@ -303,12 +303,12 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*TxContractV
 				Deadline:    outBody.Deadline,
 			},
 		}, nil
-	case contractv2.Pair_Create:
+	case contractv2.Pair_AddLiquidity:
 		bytes, err := json.Marshal(body.Function)
 		if err != nil {
 			return nil, err
 		}
-		createBody := &RpcExchangePairCreate{}
+		createBody := &RpcExchangeAddLiquidity{}
 		err = json.Unmarshal(bytes, createBody)
 		if err != nil {
 			return nil, err
@@ -321,7 +321,7 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*TxContractV
 			Contract:     hasharry.StringToAddress(body.Contract),
 			Type:         body.Type,
 			FunctionType: body.FunctionType,
-			Function: &exchange_func.ExchangePairCreate{
+			Function: &exchange_func.ExchangeAddLiquidity{
 				Exchange:       hasharry.StringToAddress(createBody.Exchange),
 				TokenA:         hasharry.StringToAddress(createBody.TokenA),
 				TokenB:         hasharry.StringToAddress(createBody.TokenB),
@@ -330,6 +330,33 @@ func translateRpcContractV2BodyToBody(rpcBody IRpcTransactionBody) (*TxContractV
 				AmountBDesired: amountBDesired,
 				AmountAMin:     amountAMin,
 				AmountBMin:     amountBMin,
+			},
+		}, nil
+	case contractv2.Pair_RemoveLiquidity:
+		bytes, err := json.Marshal(body.Function)
+		if err != nil {
+			return nil, err
+		}
+		remove := &RpcExchangeRemoveLiquidity{}
+		err = json.Unmarshal(bytes, remove)
+		if err != nil {
+			return nil, err
+		}
+		amountAMin, _ := NewAmount(remove.AmountAMin)
+		amountBMin, _ := NewAmount(remove.AmountBMin)
+		return &TxContractV2Body{
+			Contract:     hasharry.StringToAddress(body.Contract),
+			Type:         body.Type,
+			FunctionType: body.FunctionType,
+			Function: &exchange_func.ExchangeRemoveLiquidity{
+				Exchange:   hasharry.StringToAddress(remove.Exchange),
+				TokenA:     hasharry.StringToAddress(remove.TokenA),
+				TokenB:     hasharry.StringToAddress(remove.TokenB),
+				To:         hasharry.StringToAddress(remove.To),
+				Liquidity:  remove.Liquidity,
+				AmountAMin: amountAMin,
+				AmountBMin: amountBMin,
+				Deadline:   remove.Deadline,
 			},
 		}, nil
 	}
@@ -369,11 +396,26 @@ func TranslateContractV2TxToRpcTx(tx *Transaction, state *ContractV2State) (*Rpc
 }
 
 func translateToRpcContractV2WithState(body *TxContractV2Body, contractState *ContractV2State) (*RpcContractV2BodyWithState, error) {
-	var state = Contract_Wait
-	var message string
+	var state *RpcContractState = &RpcContractState{
+		StateCode: Contract_Wait,
+		Events:    make([]*RpcEvent, 0),
+		Error:     "",
+	}
 	if contractState != nil {
-		state = contractState.State
-		message = contractState.Message
+		state.StateCode = contractState.State
+		state.Error = contractState.Error
+		if contractState.Event != nil {
+			for _, e := range contractState.Event {
+				state.Events = append(state.Events, &RpcEvent{
+					EventType: int(e.EventType),
+					From:      e.From.String(),
+					To:        e.To.String(),
+					Token:     e.Token.String(),
+					Amount:    Amount(e.Amount).ToCoin(),
+					Height:    e.Height,
+				})
+			}
+		}
 	}
 
 	funcBody, err := rpcFunction(body)
@@ -386,7 +428,6 @@ func translateToRpcContractV2WithState(body *TxContractV2Body, contractState *Co
 		FunctionType: body.FunctionType,
 		Function:     funcBody,
 		State:        state,
-		Message:      message,
 	}, nil
 }
 
@@ -455,12 +496,12 @@ func rpcFunction(body *TxContractV2Body) (IRCFunction, error) {
 			To:          funcBody.To.String(),
 			Deadline:    funcBody.Deadline,
 		}
-	case contractv2.Pair_Create:
-		funcBody, ok := body.Function.(*exchange_func.ExchangePairCreate)
+	case contractv2.Pair_AddLiquidity:
+		funcBody, ok := body.Function.(*exchange_func.ExchangeAddLiquidity)
 		if !ok {
 			return nil, errors.New("wrong function body")
 		}
-		function = &RpcExchangePairCreate{
+		function = &RpcExchangeAddLiquidity{
 			Exchange:       funcBody.Exchange.String(),
 			TokenA:         funcBody.TokenA.String(),
 			TokenB:         funcBody.TokenB.String(),
@@ -469,6 +510,21 @@ func rpcFunction(body *TxContractV2Body) (IRCFunction, error) {
 			AmountBDesired: Amount(funcBody.AmountBDesired).ToCoin(),
 			AmountAMin:     Amount(funcBody.AmountAMin).ToCoin(),
 			AmountBMin:     Amount(funcBody.AmountBMin).ToCoin(),
+		}
+	case contractv2.Pair_RemoveLiquidity:
+		funcBody, ok := body.Function.(*exchange_func.ExchangeRemoveLiquidity)
+		if !ok {
+			return nil, errors.New("wrong function body")
+		}
+		function = &RpcExchangeRemoveLiquidity{
+			Exchange:   funcBody.Exchange.String(),
+			TokenA:     funcBody.TokenA.String(),
+			TokenB:     funcBody.TokenB.String(),
+			To:         funcBody.To.String(),
+			Liquidity:  funcBody.Liquidity,
+			AmountAMin: Amount(funcBody.AmountAMin).ToCoin(),
+			AmountBMin: Amount(funcBody.AmountBMin).ToCoin(),
+			Deadline:   funcBody.Deadline,
 		}
 	}
 	return function, nil

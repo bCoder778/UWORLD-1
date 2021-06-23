@@ -16,8 +16,22 @@ type RpcContractV2BodyWithState struct {
 	Type         contractv2.ContractType `json:"type"`
 	FunctionType contractv2.FunctionType `json:"functiontype"`
 	Function     IRCFunction             `json:"function"`
-	State        ContractState           `json:"state"`
-	Message      string                  `json:"message"`
+	State        *RpcContractState       `json:"state"`
+}
+
+type RpcContractState struct {
+	StateCode ContractState `json:"statecode"`
+	Events    []*RpcEvent   `json:"event"`
+	Error     string        `json:"error"`
+}
+
+type RpcEvent struct {
+	EventType int     `json:"eventtype"`
+	From      string  `json:"from"`
+	To        string  `json:"to"`
+	Token     string  `json:"token"`
+	Amount    float64 `json:"amount"`
+	Height    uint64  `json:"height"`
 }
 
 type IRCFunction interface {
@@ -52,7 +66,7 @@ type RpcExchangeExactOutBody struct {
 	Deadline    uint64   `json:"deadline"`
 }
 
-type RpcExchangePairCreate struct {
+type RpcExchangeAddLiquidity struct {
 	Exchange       string  `json:"exchange"`
 	TokenA         string  `json:"tokenA"`
 	TokenB         string  `json:"tokenB"`
@@ -61,6 +75,17 @@ type RpcExchangePairCreate struct {
 	AmountBDesired float64 `json:"amountbdesired"`
 	AmountAMin     float64 `json:"amountamin"`
 	AmountBMin     float64 `json:"amountbmin"`
+}
+
+type RpcExchangeRemoveLiquidity struct {
+	Exchange   string  `json:"exchange"`
+	TokenA     string  `json:"tokenA"`
+	TokenB     string  `json:"tokenB"`
+	To         string  `json:"to"`
+	Liquidity  uint64  `json:"liquidity"`
+	AmountAMin float64 `json:"amountamin"`
+	AmountBMin float64 `json:"amountbmin"`
+	Deadline   uint64  `json:"deadline"`
 }
 
 type RpcPair struct {

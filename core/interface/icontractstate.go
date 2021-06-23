@@ -7,13 +7,6 @@ import (
 )
 
 type IContractState interface {
-	CreateTokenContract(contractAddr hasharry.Address, coin, description,
-		abbr string, hash hasharry.Hash, height uint64, time uint64, amount uint64,
-		receiver hasharry.Address, increase bool)
-	IncreaseTokenContract(contractAddr hasharry.Address, hash hasharry.Hash, height uint64,
-		time uint64, amount uint64,
-		receiver hasharry.Address) error
-
 	GetContract(contractAddr string) *types.Contract
 
 	SetContract(contract *types.Contract)

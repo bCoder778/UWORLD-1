@@ -356,8 +356,12 @@ func (t *Transaction) TranslateToRlpTransaction() *RlpTransaction {
 			function, _ := body.Function.(*exchange_func.ExactOut)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
-		case contractv2.Pair_Create:
-			function, _ := body.Function.(*exchange_func.ExchangePairCreate)
+		case contractv2.Pair_AddLiquidity:
+			function, _ := body.Function.(*exchange_func.ExchangeAddLiquidity)
+			bytes, _ := rlp.EncodeToBytes(function)
+			rlpC.TxBody.Function = bytes
+		case contractv2.Pair_RemoveLiquidity:
+			function, _ := body.Function.(*exchange_func.ExchangeRemoveLiquidity)
 			bytes, _ := rlp.EncodeToBytes(function)
 			rlpC.TxBody.Function = bytes
 		}

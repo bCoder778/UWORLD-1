@@ -22,11 +22,12 @@ type ExchangeRunner struct {
 	address      hasharry.Address
 	tx           types.ITransaction
 	contractBody *types.TxContractV2Body
-	transList    []*library.TransferInfo
 	pairList     []*contractv2.ContractV2
+	events       []*types.Event
+	height       uint64
 }
 
-func NewExchangeRunner(lib *library.RunnerLibrary, tx types.ITransaction) *ExchangeRunner {
+func NewExchangeRunner(lib *library.RunnerLibrary, tx types.ITransaction, height uint64) *ExchangeRunner {
 	var ex *exchange.Exchange
 	address := tx.GetTxBody().GetContract()
 	exHeader := lib.GetContractV2(address.String())
@@ -41,7 +42,8 @@ func NewExchangeRunner(lib *library.RunnerLibrary, tx types.ITransaction) *Excha
 		tx:           tx,
 		exchange:     ex,
 		contractBody: contractBody,
-		transList:    make([]*library.TransferInfo, 0),
+		events:       make([]*types.Event, 0),
+		height:       height,
 	}
 }
 
@@ -129,7 +131,9 @@ func (e *ExchangeRunner) Init() {
 	defer func() {
 		if ERR != nil {
 			state.State = types.Contract_Failed
-			state.Message = ERR.Error()
+			state.Error = ERR.Error()
+		} else {
+			state.Event = e.events
 		}
 		e.library.SetContractV2State(e.tx.Hash().String(), state)
 	}()
@@ -155,7 +159,9 @@ func (e *ExchangeRunner) SetAdmin() {
 	defer func() {
 		if ERR != nil {
 			state.State = types.Contract_Failed
-			state.Message = ERR.Error()
+			state.Error = ERR.Error()
+		} else {
+			state.Event = e.events
 		}
 		e.library.SetContractV2State(e.tx.Hash().String(), state)
 	}()
@@ -180,7 +186,9 @@ func (e *ExchangeRunner) SetFeeTo() {
 	defer func() {
 		if ERR != nil {
 			state.State = types.Contract_Failed
-			state.Message = ERR.Error()
+			state.Error = ERR.Error()
+		} else {
+			state.Event = e.events
 		}
 		e.library.SetContractV2State(e.tx.Hash().String(), state)
 	}()
@@ -199,24 +207,30 @@ func (e *ExchangeRunner) SetFeeTo() {
 	e.library.SetContractV2(e.exHeader)
 }
 
-func (e *ExchangeRunner) SwapExactIn(blockHeight, blockTime uint64) {
+type SwapExactIn struct {
+	AmountOut uint64 `json:"amountOut"`
+}
+
+func (e *ExchangeRunner) SwapExactIn(blockTime uint64) {
 	var ERR error
 	var err error
+	var SwapInfo SwapExactIn
 	var amounts []uint64
 	state := &types.ContractV2State{State: types.Contract_Success}
 	defer func() {
 		if ERR != nil {
 			state.State = types.Contract_Failed
-			state.Message = ERR.Error()
+			state.Error = ERR.Error()
 		} else {
-			state.Message = swapInfo(amounts)
+			state.Event = e.events
 		}
+		state.Event = e.events
 		e.library.SetContractV2State(e.tx.Hash().String(), state)
 	}()
 
 	funcBody, _ := e.contractBody.Function.(*exchange_func.ExactIn)
 
-	if funcBody.Deadline != 0 && funcBody.Deadline < blockHeight {
+	if funcBody.Deadline != 0 && funcBody.Deadline < e.height {
 		ERR = fmt.Errorf("past the deadline")
 		return
 	}
@@ -225,36 +239,25 @@ func (e *ExchangeRunner) SwapExactIn(blockHeight, blockTime uint64) {
 		ERR = err
 		return
 	}
-	outAmount := amounts[len(amounts)-1]
-	if outAmount < funcBody.AmountOutMin {
-		ERR = fmt.Errorf("outAmount %d is less than the minimum output %d", outAmount, funcBody.AmountOutMin)
+	SwapInfo.AmountOut = amounts[len(amounts)-1]
+	if SwapInfo.AmountOut < funcBody.AmountOutMin {
+		ERR = fmt.Errorf("outAmount %d is less than the minimum output %d", SwapInfo.AmountOut, funcBody.AmountOutMin)
 		return
 	}
 	pair0 := e.exchange.PairAddress(library.SortToken(funcBody.Path[0], funcBody.Path[1]))
-	if err := e.swapAmounts(amounts, funcBody.Path, funcBody.To, blockHeight, blockTime); err != nil {
+	if err = e.swapAmounts(amounts, funcBody.Path, funcBody.To, blockTime); err != nil {
 		ERR = err
 		return
 	}
-	transferInfo := &library.TransferInfo{
-		From:   e.tx.From(),
-		To:     pair0,
-		Token:  funcBody.Path[0],
-		Amount: amounts[0],
-		Height: blockHeight,
-	}
-	if err := e.library.PreTransfer(transferInfo); err != nil {
-		ERR = err
-		return
-	}
-	e.transList = append(e.transList, transferInfo)
-	e.transfer()
-	e.update()
-}
 
-func (e *ExchangeRunner) transfer() {
-	for _, info := range e.transList {
-		e.library.Transfer(info)
+	e.transferEvent(e.tx.From(), pair0, funcBody.Path[0], amounts[0])
+
+	if err = e.runEvents(); err != nil {
+		ERR = err
+		return
 	}
+
+	e.update()
 }
 
 func (e *ExchangeRunner) update() {
@@ -264,7 +267,7 @@ func (e *ExchangeRunner) update() {
 }
 
 // requires the initial amount to have already been sent to the first pair
-func (e *ExchangeRunner) swapAmounts(amounts []uint64, path []hasharry.Address, to hasharry.Address, height, blockTime uint64) error {
+func (e *ExchangeRunner) swapAmounts(amounts []uint64, path []hasharry.Address, to hasharry.Address, blockTime uint64) error {
 	var amount0Out, amount1Out uint64
 	var amount0In, amount1In uint64
 	for i := 0; i < len(path)-1; i++ {
@@ -283,14 +286,14 @@ func (e *ExchangeRunner) swapAmounts(amounts []uint64, path []hasharry.Address, 
 		if i < len(path)-2 {
 			toAddr = e.exchange.PairAddress(library.SortToken(output, path[i+2]))
 		}
-		if err := e.swap(input, output, amount0In, amount1In, amount0Out, amount1Out, toAddr, height, blockTime); err != nil {
+		if err := e.swap(input, output, amount0In, amount1In, amount0Out, amount1Out, toAddr, blockTime); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount1In, amount0Out, amount1Out uint64, to hasharry.Address, height uint64, blockTime uint64) error {
+func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount1In, amount0Out, amount1Out uint64, to hasharry.Address, blockTime uint64) error {
 	if amount0Out <= 0 && amount1Out <= 0 {
 		return errors.New("insufficient output amount")
 	}
@@ -309,30 +312,10 @@ func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount
 	}
 	// 转账给to地址
 	if amount0Out > 0 {
-		transInfo := &library.TransferInfo{
-			From:   pairAddress,
-			To:     to,
-			Token:  _token0,
-			Amount: amount0Out,
-			Height: height,
-		}
-		if err := e.library.PreTransfer(transInfo); err != nil {
-			return err
-		}
-		e.transList = append(e.transList, transInfo)
+		e.transferEvent(pairAddress, to, _token0, amount0Out)
 	}
 	if amount1Out > 0 {
-		transInfo := &library.TransferInfo{
-			From:   pairAddress,
-			To:     to,
-			Token:  _token1,
-			Amount: amount1Out,
-			Height: height,
-		}
-		if err := e.library.PreTransfer(transInfo); err != nil {
-			return err
-		}
-		e.transList = append(e.transList, transInfo)
+		e.transferEvent(pairAddress, to, _token1, amount1Out)
 	}
 
 	balance0 = e.library.GetBalance(pairAddress, _token0)
@@ -356,7 +339,7 @@ func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount
 	}
 
 	//通过输出数量，算输入数量
-	if balance0 > _reserve0-amount0Out {
+	/*if balance0 > _reserve0-amount0Out {
 		amount0In = balance0 - (_reserve0 - amount0Out)
 	} else {
 		amount0In = 0
@@ -366,7 +349,7 @@ func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount
 		amount1In = balance1 - (_reserve1 - amount1Out)
 	} else {
 		amount1In = 0
-	}
+	}*/
 	if amount0In <= 0 && amount1In <= 0 {
 		return errors.New("insufficient input amount")
 	}
@@ -385,7 +368,7 @@ func (e *ExchangeRunner) swap(tokenA, tokenB hasharry.Address, amount0In, amount
 	if x.Cmp(y) < 0 {
 		return errors.New("K")
 	}
-	pair.Update(balance0, balance1, _reserve0, _reserve1, blockTime)
+	pair.UpdateReserve(balance0, balance1, _reserve0, _reserve1, blockTime)
 	pairContract.Body = pair
 	e.pairList = append(e.pairList, pairContract)
 	return nil
@@ -473,7 +456,7 @@ func GetAmountIn(amountOut, reserveIn, reserveOut uint64) (uint64, error) {
 	return amountIn.Uint64(), nil
 }
 
-func (e *ExchangeRunner) SwapExactOut(blockHeight uint64, blockTime uint64) {
+func (e *ExchangeRunner) SwapExactOut(blockTime uint64) {
 	var ERR error
 	var err error
 	var amounts []uint64
@@ -481,16 +464,16 @@ func (e *ExchangeRunner) SwapExactOut(blockHeight uint64, blockTime uint64) {
 	defer func() {
 		if ERR != nil {
 			state.State = types.Contract_Failed
-			state.Message = ERR.Error()
+			state.Error = ERR.Error()
 		} else {
-			state.Message = swapInfo(amounts)
+			state.Event = e.events
 		}
 		e.library.SetContractV2State(e.tx.Hash().String(), state)
 	}()
 
 	funcBody, _ := e.contractBody.Function.(*exchange_func.ExactOut)
 
-	if funcBody.Deadline != 0 && funcBody.Deadline < blockHeight {
+	if funcBody.Deadline != 0 && funcBody.Deadline < e.height {
 		ERR = fmt.Errorf("past the deadline")
 		return
 	}
@@ -499,29 +482,47 @@ func (e *ExchangeRunner) SwapExactOut(blockHeight uint64, blockTime uint64) {
 		ERR = err
 		return
 	}
-	if amounts[0] > funcBody.AmountInMax {
+	amountIn := amounts[0]
+	if amountIn > funcBody.AmountInMax {
 		ERR = fmt.Errorf("amountIn %d is greater than the maximum input amount %d", amounts[0], funcBody.AmountInMax)
 		return
 	}
 	pair0 := e.exchange.PairAddress(library.SortToken(funcBody.Path[0], funcBody.Path[1]))
-	if err := e.swapAmounts(amounts, funcBody.Path, funcBody.To, blockHeight, blockTime); err != nil {
+	if err := e.swapAmounts(amounts, funcBody.Path, funcBody.To, blockTime); err != nil {
 		ERR = err
 		return
 	}
-	transferInfo := &library.TransferInfo{
-		From:   e.tx.From(),
-		To:     pair0,
-		Token:  funcBody.Path[0],
-		Amount: amounts[0],
-		Height: blockHeight,
-	}
-	if err := e.library.PreTransfer(transferInfo); err != nil {
+
+	e.transferEvent(e.tx.From(), pair0, funcBody.Path[0], amountIn)
+
+	if err = e.runEvents(); err != nil {
 		ERR = err
 		return
 	}
-	e.transList = append(e.transList, transferInfo)
-	e.transfer()
 	e.update()
+}
+
+func (e *ExchangeRunner) transferEvent(from, to, token hasharry.Address, amount uint64) {
+	e.events = append(e.events, &types.Event{
+		EventType: types.Event_Transfer,
+		From:      from,
+		To:        to,
+		Token:     token,
+		Amount:    amount,
+		Height:    e.height,
+	})
+}
+
+func (e *ExchangeRunner) runEvents() error {
+	for _, event := range e.events {
+		if err := e.library.PreRunEvent(event); err != nil {
+			return err
+		}
+	}
+	for _, event := range e.events {
+		e.library.RunEvent(event)
+	}
+	return nil
 }
 
 func ExchangeAddress(net, from string, nonce uint64) (string, error) {
@@ -529,16 +530,4 @@ func ExchangeAddress(net, from string, nonce uint64) (string, error) {
 	nonceBytes := codec.Uint64toBytes(nonce)
 	bytes = append([]byte(from), nonceBytes...)
 	return ut.GenerateContractV2Address(net, bytes)
-}
-
-func swapInfo(amounts []uint64) string {
-	str := ""
-	for i, amopunt := range amounts {
-		if i != len(amounts)-1 {
-			str += fmt.Sprintf("%d-", amopunt)
-		} else {
-			str += fmt.Sprintf("%d", amopunt)
-		}
-	}
-	return str
 }

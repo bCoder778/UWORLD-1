@@ -8,8 +8,6 @@ import (
 	"github.com/uworldao/UWORLD/core/types"
 	"github.com/uworldao/UWORLD/core/types/contractv2"
 	"github.com/uworldao/UWORLD/core/types/contractv2/exchange"
-	"github.com/uworldao/UWORLD/param"
-	"github.com/uworldao/UWORLD/ut"
 	"strings"
 )
 
@@ -22,22 +20,12 @@ func NewRunnerLibrary(aState _interface.IAccountState, cState _interface.IContra
 	return &RunnerLibrary{aState: aState, cState: cState}
 }
 
-func (r *RunnerLibrary) CreateToken(height uint64, hash hasharry.Hash, time uint64, from hasharry.Address, token0, token1 hasharry.Address) (hasharry.Address, error) {
-	token0Record := r.cState.GetContract(token0.String())
-	token1Record := r.cState.GetContract(token1.String())
-	abbr := fmt.Sprintf("LP-%s-%s", token0Record.CoinAbbr, token1Record.CoinAbbr)
-	lp, err := ut.GenerateContractAddress(param.Net, from.String(), abbr)
-	if err != nil {
-		return hasharry.Address{}, err
+func (r *RunnerLibrary) ContractSymbol(token hasharry.Address) (string, error) {
+	token0Record := r.cState.GetContract(token.String())
+	if token0Record == nil {
+		return "", fmt.Errorf("%s is not exist", token.String())
 	}
-	lpAddress := hasharry.StringToAddress(lp)
-	r.cState.CreateTokenContract(lpAddress, abbr, "", abbr, hash, height, time, 0, from, true)
-	return lpAddress, nil
-}
-
-func (r *RunnerLibrary) Mint(contract hasharry.Address, hash hasharry.Hash, receiver hasharry.Address, amount, height, time uint64) {
-	_ = r.cState.IncreaseTokenContract(contract, hash, height, time, amount, receiver)
-	_ = r.aState.Mint(receiver, contract, amount, height)
+	return token0Record.CoinAbbr, nil
 }
 
 func (r *RunnerLibrary) GetContract(contractAddr string) *types.Contract {
@@ -65,12 +53,27 @@ func (r RunnerLibrary) GetBalance(address hasharry.Address, token hasharry.Addre
 	return account.GetBalance(token.String())
 }
 
-func (r *RunnerLibrary) PreTransfer(info *TransferInfo) error {
-	return r.aState.PreTransfer(info.From, info.To, info.Token, info.Amount, info.Height)
+func (r *RunnerLibrary) PreRunEvent(event *types.Event) error {
+	switch event.EventType {
+	case types.Event_Transfer:
+		return r.aState.PreTransfer(event.From, event.To, event.Token, event.Amount, event.Height)
+	case types.Event_Mint:
+		return nil
+	case types.Event_Burn:
+		return r.aState.PreBurn(event.From, event.Token, event.Amount, event.Height)
+	}
+	return fmt.Errorf("invalid event type")
 }
 
-func (r *RunnerLibrary) Transfer(info *TransferInfo) error {
-	return r.aState.Transfer(info.From, info.To, info.Token, info.Amount, info.Height)
+func (r *RunnerLibrary) RunEvent(event *types.Event) {
+	switch event.EventType {
+	case types.Event_Transfer:
+		r.aState.Transfer(event.From, event.To, event.Token, event.Amount, event.Height)
+	case types.Event_Mint:
+		r.aState.Mint(event.To, event.Token, event.Amount, event.Height)
+	case types.Event_Burn:
+		r.aState.Burn(event.From, event.Token, event.Amount, event.Height)
+	}
 }
 
 func (r *RunnerLibrary) GetPair(pairAddress hasharry.Address) (*exchange.Pair, error) {
@@ -111,12 +114,4 @@ func SortToken(tokenA, tokenB hasharry.Address) (hasharry.Address, hasharry.Addr
 	} else {
 		return tokenB, tokenA
 	}
-}
-
-type TransferInfo struct {
-	From   hasharry.Address
-	To     hasharry.Address
-	Token  hasharry.Address
-	Amount uint64
-	Height uint64
 }

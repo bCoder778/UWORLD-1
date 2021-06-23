@@ -17,12 +17,14 @@ const (
 )
 
 const (
-	Exchange_Init     FunctionType = 0
-	Exchange_SetAdmin              = 1
-	Exchange_SetFeeTo              = 2
-	Exchange_ExactIn               = 3
-	Exchange_ExactOut              = 4
-	Pair_Create                    = 5
+	Exchange_Init     FunctionType = 000000
+	Exchange_SetAdmin              = 000001
+	Exchange_SetFeeTo              = 000002
+	Exchange_ExactIn               = 000003
+	Exchange_ExactOut              = 000004
+
+	Pair_AddLiquidity    = 100000
+	Pair_RemoveLiquidity = 100001
 )
 
 type ContractV2 struct {

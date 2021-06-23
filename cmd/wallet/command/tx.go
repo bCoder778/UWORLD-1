@@ -330,6 +330,7 @@ func sendTx(cmd *cobra.Command, tx *types.Transaction) (*rpc.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(string(jsonBytes))
 	re := &rpc.Bytes{Bytes: jsonBytes}
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*20)
 	defer cancel()

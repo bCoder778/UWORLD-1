@@ -23,7 +23,7 @@ type RlpContractBody struct {
 	FunctionType contractv2.FunctionType
 	Function     []byte
 	State        ContractState
-	Message      string
+	Message      []byte
 }
 
 func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
@@ -74,8 +74,12 @@ func (rt *RlpTransaction) TranslateToTransaction() *Transaction {
 			var out *exchange_func.ExactOut
 			rlp.DecodeBytes(rlpCt.Function, &out)
 			ct.Function = out
-		case contractv2.Pair_Create:
-			var create *exchange_func.ExchangePairCreate
+		case contractv2.Pair_AddLiquidity:
+			var create *exchange_func.ExchangeAddLiquidity
+			rlp.DecodeBytes(rlpCt.Function, &create)
+			ct.Function = create
+		case contractv2.Pair_RemoveLiquidity:
+			var create *exchange_func.ExchangeRemoveLiquidity
 			rlp.DecodeBytes(rlpCt.Function, &create)
 			ct.Function = create
 		}

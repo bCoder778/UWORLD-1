@@ -91,7 +91,9 @@ func (c *ContractBody) verifyAttribute() error {
 
 func (c *ContractBody) verifyContractAddress(from hasharry.Address) error {
 	if !ut.CheckContractAddress(param.Net, from.String(), c.Abbr, c.Contract.String()) {
-		return errors.New("check contract address failed")
+		if !ut.CheckContractV2Address(param.Net, []byte(c.Abbr), c.Contract.String()) {
+			return errors.New("check contract address failed")
+		}
 	}
 	return nil
 }
